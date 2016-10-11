@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
@@ -20,22 +21,37 @@ type Section struct {
 type File struct {
 	Dir                  string
 	Name                 string
-	Sections             []*Section
-	SectionIndex         map[string]*Section
 	IgnoreUnknownOptions bool
+	sections             []*Section
+	sectionIndex         map[string]*Section
 	read                 bool
 	parsed               bool
 	contents             string
 	selected             []string
 }
 
-func NewFile(pathAndName string) *File {
+// NewFile returns a value representing an option file. The arg(s) will be
+// joined to create a single path, so it does not matter if the path is provided
+// in a way that separates the dir from the base filename or not.
+func NewFile(paths ...string) *File {
+	pathAndName := path.Join(paths...)
+	cleanPath, err := filepath.Abs(filepath.Clean(pathAndName))
+	if err == nil {
+		pathAndName = cleanPath
+	}
+
 	return &File{
 		Dir:          path.Dir(pathAndName),
 		Name:         path.Base(pathAndName),
-		Sections:     make([]*Section, 0),
-		SectionIndex: make(map[string]*Section),
+		sections:     make([]*Section, 0),
+		sectionIndex: make(map[string]*Section),
 	}
+}
+
+// Exists returns true if the file exists and is visible to the current user.
+func (f *File) Exists() bool {
+	_, err := os.Stat(f.Path())
+	return (err == nil)
 }
 
 func (f *File) Path() string {
@@ -44,14 +60,14 @@ func (f *File) Path() string {
 
 func (f *File) Write(overwrite bool) error {
 	lines := make([]string, 0)
-	for n, section := range f.Sections {
+	for n, section := range f.sections {
 		if section.Name != "" {
 			lines = append(lines, fmt.Sprintf("[%s]", section.Name))
 		}
 		for k, v := range section.Values {
 			lines = append(lines, fmt.Sprintf("%s=%s", k, v))
 		}
-		if n < len(f.Sections)-1 {
+		if n < len(f.sections)-1 {
 			lines = append(lines, "")
 		}
 	}
@@ -61,6 +77,8 @@ func (f *File) Write(overwrite bool) error {
 		return nil
 	}
 	f.contents = fmt.Sprintf("%s\n", strings.Join(lines, "\n"))
+	f.read = true
+	f.parsed = true
 
 	flag := os.O_WRONLY | os.O_CREATE
 	if overwrite {
@@ -109,8 +127,8 @@ func (f *File) Parse(cfg *Config) error {
 		Name:   "",
 		Values: make(map[string]string),
 	}
-	f.Sections = append(f.Sections, section)
-	f.SectionIndex[""] = section
+	f.sections = append(f.sections, section)
+	f.sectionIndex[""] = section
 
 	var lineNumber int
 	scanner := bufio.NewScanner(strings.NewReader(f.contents))
@@ -123,16 +141,7 @@ func (f *File) Parse(cfg *Config) error {
 		}
 		if line[0] == '[' {
 			name := line[1 : len(line)-1]
-			if s, exists := f.SectionIndex[name]; exists {
-				section = s
-			} else {
-				section = &Section{
-					Name:   name,
-					Values: make(map[string]string),
-				}
-				f.Sections = append(f.Sections, section)
-				f.SectionIndex[name] = section
-			}
+			section = f.getOrCreateSection(name)
 			continue
 		}
 
@@ -182,7 +191,7 @@ func (f *File) UseSection(names ...string) error {
 			continue
 		}
 		already[name] = true
-		if _, ok := f.SectionIndex[name]; ok {
+		if _, ok := f.sectionIndex[name]; ok {
 			f.selected = append(f.selected, name)
 		} else {
 			notFound = append(notFound, name)
@@ -209,10 +218,31 @@ func (f *File) OptionValue(optionName string) (string, bool) {
 		panic(fmt.Errorf("Call to OptionValue(\"%s\") on unparsed file %s", optionName, f.Path()))
 	}
 	for _, sectionName := range f.selected {
-		section := f.SectionIndex[sectionName]
+		section := f.sectionIndex[sectionName]
+		if section == nil {
+			continue
+		}
 		if value, ok := section.Values[optionName]; ok {
 			return value, true
 		}
 	}
 	return "", false
+}
+
+func (f *File) SetOptionValue(sectionName, optionName, value string) {
+	section := f.getOrCreateSection(sectionName)
+	section.Values[optionName] = value
+}
+
+func (f *File) getOrCreateSection(name string) *Section {
+	if s, exists := f.sectionIndex[name]; exists {
+		return s
+	}
+	s := &Section{
+		Name:   name,
+		Values: make(map[string]string),
+	}
+	f.sections = append(f.sections, s)
+	f.sectionIndex[name] = s
+	return s
 }

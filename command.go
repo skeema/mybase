@@ -10,8 +10,8 @@ type CommandHandler func(*Config) error
 
 type Command struct {
 	Name          string              // Command name, as used in CLI
-	Description   string              // Long (multi-line) description/help text
 	Summary       string              // Short description text. Ignored if ParentCommand is nil.
+	Description   string              // Long (multi-line) description/help text
 	SubCommands   map[string]*Command // Index of sub-commands
 	ParentCommand *Command            // What command this is a sub-command of, or nil if this is the top level
 	Handler       CommandHandler      // Callback for processing command. Ignored if len(SubCommands) > 0.
@@ -23,9 +23,10 @@ type Command struct {
 
 // NewCommand creates a standalone command, ie one that does not take sub-
 // commands of its own.
-func NewCommand(name, description string, handler CommandHandler, minArgs, maxArgs int, argNames ...string) *Command {
+func NewCommand(name, summary, description string, handler CommandHandler, minArgs, maxArgs int, argNames ...string) *Command {
 	cmd := &Command{
 		Name:        name,
+		Summary:     summary,
 		Description: description,
 		Handler:     handler,
 		MinArgs:     minArgs,

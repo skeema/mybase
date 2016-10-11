@@ -29,7 +29,7 @@ func (cli *CommandLine) parseLongArg(arg string, args *[]string, longOptionIndex
 		if loose {
 			return nil
 		} else {
-			return OptionNotDefinedError{key, ""}
+			return OptionNotDefinedError{key, "CLI"}
 		}
 	}
 
@@ -37,7 +37,7 @@ func (cli *CommandLine) parseLongArg(arg string, args *[]string, longOptionIndex
 		if opt.RequireValue {
 			// Value required: allow format "--foo bar" in addition to "--foo=bar"
 			if len(*args) == 0 || (*args)[0][0] == '-' {
-				return OptionMissingValueError{opt.Name, ""}
+				return OptionMissingValueError{opt.Name, "CLI"}
 			}
 			value = (*args)[0]
 			*args = (*args)[1:]
@@ -60,7 +60,7 @@ func (cli *CommandLine) parseShortArgs(arg string, args *[]string, shortOptionIn
 		var value string
 		opt, found := shortOptionIndex[short]
 		if !found {
-			return OptionNotDefinedError{string(short), ""}
+			return OptionNotDefinedError{string(short), "CLI"}
 		}
 
 		// Consume value. Depending on the option, value may be supplied as chars immediately following
@@ -73,7 +73,7 @@ func (cli *CommandLine) parseShortArgs(arg string, args *[]string, shortOptionIn
 				value = (*args)[0]
 				*args = (*args)[1:]
 			} else {
-				return OptionMissingValueError{opt.Name, ""}
+				return OptionMissingValueError{opt.Name, "CLI"}
 			}
 		} else { // "-xyz", parse x as a valueless option and loop again to parse y (and possibly z) as separate shorthand options
 			if opt.Type == OptionTypeBool {

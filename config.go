@@ -16,17 +16,31 @@ type OptionValuer interface {
 }
 
 type Config struct {
-	CLI            *CommandLine
-	sources        []OptionValuer // Sources of option values, excluding CLI or Command; higher indexes override lower indexes
-	unifiedValues  map[string]string
-	unifiedSources map[string]OptionValuer
-	dirty          bool
+	CLI            *CommandLine            // Parsed command-line
+	sources        []OptionValuer          // Sources of option values, excluding CLI or Command; higher indexes override lower indexes
+	unifiedValues  map[string]string       // Precomputed cache of option name => value
+	unifiedSources map[string]OptionValuer // Precomputed cache of option name => which source supplied it
+	dirty          bool                    // true if source list has changed, meaning next access needs to recompute caches
 }
 
 func NewConfig(cli *CommandLine, sources ...OptionValuer) *Config {
 	return &Config{
 		CLI:     cli,
 		sources: sources,
+		dirty:   true,
+	}
+}
+
+// Clone returns a shallow copy of a Config. The copy will point to the same
+// CLI value and sources values, but the sources slice itself will be a new
+// slice, meaning that a caller can add sources without impacting the original
+// Config's source list.
+func (cfg *Config) Clone() *Config {
+	sourcesCopy := make([]OptionValuer, len(cfg.sources))
+	copy(sourcesCopy, cfg.sources)
+	return &Config{
+		CLI:     cfg.CLI,
+		sources: sourcesCopy,
 		dirty:   true,
 	}
 }
