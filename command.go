@@ -55,8 +55,9 @@ func NewCommandSuite(name, description string) *Command {
 		Name:        "help",
 		Description: "Display usage information",
 		Summary:     `Display usage information`,
-		MaxArgs:     1,
 		Handler:     helpHandler,
+		MaxArgs:     1,
+		ArgNames:    []string{"command"},
 	}
 	cmd.AddSubCommand(helpCmd)
 
@@ -205,6 +206,17 @@ func (cmd *Command) argUsage() string {
 }
 
 func helpHandler(cfg *Config) error {
-	cfg.CLI.Command.Usage()
+	forCommand := cfg.CLI.Command
+	if forCommand.ParentCommand != nil {
+		forCommand = forCommand.ParentCommand
+	}
+	if len(cfg.CLI.Args) > 0 && len(forCommand.SubCommands) > 0 {
+		forCommandName := cfg.CLI.Args[0]
+		var ok bool
+		if forCommand, ok = forCommand.SubCommands[forCommandName]; !ok {
+			return fmt.Errorf("Unknown command \"%s\"", forCommandName)
+		}
+	}
+	forCommand.Usage()
 	return nil
 }
