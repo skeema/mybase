@@ -68,8 +68,24 @@ func (cfg *Config) rebuild() {
 	allSources = append(allSources, cfg.CLI)
 
 	options := cfg.CLI.Command.Options()
-	cfg.unifiedValues = make(map[string]string, len(options))
-	cfg.unifiedSources = make(map[string]OptionValuer, len(options))
+	cfg.unifiedValues = make(map[string]string, len(options)+len(cfg.CLI.Command.args))
+	cfg.unifiedSources = make(map[string]OptionValuer, len(options)+len(cfg.CLI.Command.args))
+
+	// Iterate over positional CLI args. These have highest precedence of all, and
+	// are treated as a special-case (not placed in sources and work differently
+	// than normal options, since they cannot appear in option files)
+	for pos, arg := range cfg.CLI.Command.args {
+		cfg.unifiedSources[arg.Name] = cfg.CLI
+		if pos < len(cfg.CLI.ArgValues) {
+			cfg.unifiedValues[arg.Name] = cfg.CLI.ArgValues[pos]
+			delete(options, arg.Name) // shadow any normal option that has same name
+		} else {
+			// If the arg was optional and not supplied on CLI, use its default value.
+			// In this case we intentionally DON'T shadow any normal option with same
+			// name, since a supplied option should override an unsupplied arg default.
+			cfg.unifiedValues[arg.Name] = arg.Default
+		}
+	}
 
 	// Iterate over all options, and set them in our maps for tracking values and sources.
 	// We go in reverse order to start at highest priority and break early when a value is found.

@@ -11,7 +11,7 @@ type CommandLine struct {
 	InvokedAs    string            // How the bin was invoked; e.g. os.Args[0]
 	Command      *Command          // Which command (or subcommand) is being executed
 	OptionValues map[string]string // Option values parsed from the command-line
-	Args         []string          // Positional arg values (does not include InvokedAs or Command.Name)
+	ArgValues    []string          // Positional arg values (does not include InvokedAs or Command.Name)
 }
 
 // OptionValue returns the value for the requested option if it was specified
@@ -103,8 +103,8 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 	cli := &CommandLine{
 		Command:      cmd,
 		InvokedAs:    args[0],
-		Args:         make([]string, 0),
 		OptionValues: make(map[string]string),
+		ArgValues:    make([]string, 0),
 	}
 	args = args[1:]
 
@@ -158,12 +158,12 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 			}
 
 		// superfluous positional arg
-		case cli.Command.MaxArgs >= 0 && len(cli.Args) >= cli.Command.MaxArgs:
-			return nil, fmt.Errorf("Extra command-line arg \"%s\" supplied; command %s takes a max of %d args", arg, cli.Command.Name, cli.Command.MaxArgs)
+		case len(cli.ArgValues) >= len(cli.Command.args):
+			return nil, fmt.Errorf("Extra command-line arg \"%s\" supplied; command %s takes a max of %d args", arg, cli.Command.Name, len(cli.Command.args))
 
 		// positional arg
 		default:
-			cli.Args = append(cli.Args, arg)
+			cli.ArgValues = append(cli.ArgValues, arg)
 		}
 	}
 
@@ -189,8 +189,8 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 		cli.Command = cli.Command.SubCommands["help"]
 	}
 
-	if len(cli.Args) < cli.Command.MinArgs {
-		return nil, fmt.Errorf("Too few command-line args; command %s requires at least %d args", cli.Command.Name, cli.Command.MinArgs)
+	if len(cli.ArgValues) < cli.Command.minArgs() {
+		return nil, fmt.Errorf("Too few positional args supplied on command line; command %s requires at least %d args", cli.Command.Name, cli.Command.minArgs())
 	}
 
 	return NewConfig(cli), nil

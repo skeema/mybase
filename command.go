@@ -15,23 +15,18 @@ type Command struct {
 	SubCommands   map[string]*Command // Index of sub-commands
 	ParentCommand *Command            // What command this is a sub-command of, or nil if this is the top level
 	Handler       CommandHandler      // Callback for processing command. Ignored if len(SubCommands) > 0.
-	MinArgs       int                 // minimum number of positional args. Ignored if len(SubCommands) > 0.
-	MaxArgs       int                 // maximum number of positional args, or -1 for infinite. Ignored if len(SubCommands) > 0.
-	ArgNames      []string            // names of position args, only used in generating help text
 	options       map[string]*Option  // Command-specific options
+	args          []*Option           // command-speciifc positional args. Ignored if len(SubCommands) > 0.
 }
 
 // NewCommand creates a standalone command, ie one that does not take sub-
 // commands of its own.
-func NewCommand(name, summary, description string, handler CommandHandler, minArgs, maxArgs int, argNames ...string) *Command {
+func NewCommand(name, summary, description string, handler CommandHandler) *Command {
 	cmd := &Command{
 		Name:        name,
 		Summary:     summary,
 		Description: description,
 		Handler:     handler,
-		MinArgs:     minArgs,
-		MaxArgs:     maxArgs,
-		ArgNames:    argNames,
 	}
 
 	helpOption := StringOption("help", '?', "", "Display usage information").ValueOptional()
@@ -56,9 +51,8 @@ func NewCommandSuite(name, description string) *Command {
 		Description: "Display usage information",
 		Summary:     `Display usage information`,
 		Handler:     helpHandler,
-		MaxArgs:     1,
-		ArgNames:    []string{"command"},
 	}
+	helpCmd.AddArg("command", "", false)
 	cmd.AddSubCommand(helpCmd)
 
 	helpOption := StringOption("help", '?', "", "Display usage information").ValueOptional()
@@ -71,20 +65,45 @@ func (cmd *Command) AddSubCommand(subCmd *Command) {
 	if cmd.SubCommands == nil {
 		cmd.SubCommands = make(map[string]*Command)
 		cmd.Handler = nil
-		cmd.MinArgs = 0
-		cmd.MaxArgs = 0
-		cmd.ArgNames = nil
+		cmd.args = nil
 		helpCmd := &Command{
 			Name:        "help",
 			Description: "Display usage information",
 			Summary:     `Display usage information`,
-			MaxArgs:     1,
 			Handler:     helpHandler,
 		}
+		helpCmd.AddArg("command", "", false)
 		cmd.AddSubCommand(helpCmd)
 	}
 	subCmd.ParentCommand = cmd
 	cmd.SubCommands[subCmd.Name] = subCmd
+}
+
+func (cmd *Command) AddArg(name, defaultValue string, requireValue bool) {
+	// Validate the arg. Panic if there's a problem, since this is indicative of
+	// programmer error.
+	for _, arg := range cmd.args {
+		// Cannot add two args with same name (TODO: add support for arg slurping into a slice)
+		if arg.Name == name {
+			panic(fmt.Errorf("Cannot add arg %s to command %s: prior arg already has that name", name, cmd.Name))
+		}
+
+		// Cannot add a required arg if optional args are already present
+		if requireValue && !arg.RequireValue {
+			panic(fmt.Errorf("Cannot add required arg %s to command %s: prior arg %s is optional", name, cmd.Name, arg.Name))
+		}
+	}
+	if defaultValue != "" && requireValue {
+		panic(fmt.Errorf("Cannot add required arg %s to command %s: required args cannot have a default value", name, cmd.Name))
+	}
+
+	arg := &Option{
+		Name:         name,
+		Type:         OptionTypeString,
+		Default:      defaultValue,
+		RequireValue: requireValue,
+	}
+	cmd.args = append(cmd.args, arg)
 }
 
 func (cmd *Command) AddOption(opt *Option) {
@@ -98,6 +117,7 @@ func (cmd *Command) AddOption(opt *Option) {
 // parent command. In cases of conflicts, sub-command options override their
 // parents / grandparents / etc. The returned map is always a copy, so
 // modifications to the map itself will not affect the original cmd.options.
+// This method does not include positional args in its return value.
 func (cmd *Command) Options() (optMap map[string]*Option) {
 	if cmd.ParentCommand == nil {
 		optMap = make(map[string]*Option, len(cmd.options))
@@ -118,6 +138,15 @@ func (cmd *Command) OptionValue(optionName string) (string, bool) {
 	options := cmd.Options()
 	opt, ok := options[optionName]
 	if !ok {
+		// See if the optionName actually refers to a positional arg, and if so,
+		// return the proper default. This is needed for patterns like
+		// Config.GetIntOrDefault which assume they can get defaults by calling
+		// OptionValue on a Command.
+		for _, arg := range cmd.args {
+			if arg.Name == optionName {
+				return arg.Default, true
+			}
+		}
 		return "", false
 	}
 	return opt.Default, true
@@ -171,36 +200,29 @@ func (cmd *Command) Usage() {
 	}
 }
 
+func (cmd *Command) minArgs() int {
+	for n, arg := range cmd.args {
+		if !arg.RequireValue {
+			return n
+		}
+	}
+	return 0
+}
+
 func (cmd *Command) argUsage() string {
 	if len(cmd.SubCommands) > 0 {
 		return " <command>"
 	}
 
 	var usage string
-	var done bool
 	var optionalArgs int
-	for n := 0; (n < cmd.MaxArgs || cmd.MaxArgs == -1) && !done; n++ {
-		var arg string
-		if n < len(cmd.ArgNames) {
-			arg = fmt.Sprintf("<%s>", cmd.ArgNames[n])
+	for _, arg := range cmd.args {
+		if arg.RequireValue {
+			usage += fmt.Sprintf(" <%s>", arg.Name)
 		} else {
-			arg = "<arg>"
-		}
-
-		// Special case: display multiple optional unnamed args as "..."
-		if n+1 >= len(cmd.ArgNames) && n+1 < cmd.MaxArgs && n+1 >= cmd.MinArgs {
-			arg = fmt.Sprintf("%s...", arg)
-			done = true
-		}
-
-		if n < cmd.MinArgs {
-			arg = fmt.Sprintf(" %s", arg)
-		} else {
-			arg = fmt.Sprintf(" [%s", arg)
+			usage += fmt.Sprintf(" [<%s>", arg.Name)
 			optionalArgs++
 		}
-
-		usage += arg
 	}
 	return usage + strings.Repeat("]", optionalArgs)
 }
@@ -210,8 +232,8 @@ func helpHandler(cfg *Config) error {
 	if forCommand.ParentCommand != nil {
 		forCommand = forCommand.ParentCommand
 	}
-	if len(cfg.CLI.Args) > 0 && len(forCommand.SubCommands) > 0 {
-		forCommandName := cfg.CLI.Args[0]
+	if len(forCommand.SubCommands) > 0 && cfg.Get("command") != "" {
+		forCommandName := cfg.Get("command")
 		var ok bool
 		if forCommand, ok = forCommand.SubCommands[forCommandName]; !ok {
 			return fmt.Errorf("Unknown command \"%s\"", forCommandName)
