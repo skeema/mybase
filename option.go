@@ -21,7 +21,6 @@ type Option struct {
 	Description  string
 	RequireValue bool
 	HiddenOnCLI  bool
-	AfterParse   func(*Config, map[string]string) error
 }
 
 func StringOption(long string, short rune, defaultValue string, description string) *Option {
@@ -64,11 +63,6 @@ func (opt *Option) ValueRequired() *Option {
 
 func (opt *Option) ValueOptional() *Option {
 	opt.RequireValue = false
-	return opt
-}
-
-func (opt *Option) Callback(callback func(*Config, map[string]string) error) *Option {
-	opt.AfterParse = callback
 	return opt
 }
 
