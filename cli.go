@@ -157,6 +157,12 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 				}
 			}
 
+		// mistakenly supplying help or version as positional arg to a non-command-suite
+		case len(cli.ArgValues) == 0 && (arg == "help" || arg == "version"):
+			if err := cli.parseLongArg(arg, &args, longOptionIndex); err != nil {
+				return nil, err
+			}
+
 		// superfluous positional arg
 		case len(cli.ArgValues) >= len(cli.Command.args):
 			return nil, fmt.Errorf("Extra command-line arg \"%s\" supplied; command %s takes a max of %d args", arg, cli.Command.Name, len(cli.Command.args))
@@ -167,20 +173,26 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 		}
 	}
 
+	if len(cli.ArgValues) < cli.Command.minArgs() {
+		return nil, fmt.Errorf("Too few positional args supplied on command line; command %s requires at least %d args", cli.Command.Name, cli.Command.minArgs())
+	}
+
+	cfg := NewConfig(cli)
+
 	// Handle --help if supplied as an option instead of as a subcommand
 	// (Note that format "command help [<subcommand>]" is already parsed properly into help command)
 	if forCommandName, helpWanted := cli.OptionValues["help"]; helpWanted {
 		// command --help displays help for command
 		// vs
 		// command --help <subcommand> displays help for subcommand
-		forCommand := cli.Command
-		if forCommandName != "" {
-			var ok bool
-			if forCommand, ok = cli.Command.SubCommands[forCommandName]; !ok {
-				return nil, fmt.Errorf("Unknown command \"%s\"", forCommandName)
-			}
-		}
-		forCommand.Usage()
+		cli.ArgValues = []string{forCommandName}
+		helpHandler(cfg)
+		os.Exit(0)
+	}
+
+	// Handle --version if supplied as an option instead of as a subcommand
+	if cli.OptionValues["version"] == "1" {
+		versionHandler(cfg)
 		os.Exit(0)
 	}
 
@@ -189,9 +201,5 @@ func ParseCLI(cmd *Command, args []string) (*Config, error) {
 		cli.Command = cli.Command.SubCommands["help"]
 	}
 
-	if len(cli.ArgValues) < cli.Command.minArgs() {
-		return nil, fmt.Errorf("Too few positional args supplied on command line; command %s requires at least %d args", cli.Command.Name, cli.Command.minArgs())
-	}
-
-	return NewConfig(cli), nil
+	return cfg, nil
 }

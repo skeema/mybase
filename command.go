@@ -10,7 +10,7 @@ type CommandHandler func(*Config) error
 
 type Command struct {
 	Name          string              // Command name, as used in CLI
-	Summary       string              // Short description text. Ignored if ParentCommand is nil.
+	Summary       string              // Short description text. If ParentCommand is nil, represents version instead.
 	Description   string              // Long (multi-line) description/help text
 	SubCommands   map[string]*Command // Index of sub-commands
 	ParentCommand *Command            // What command this is a sub-command of, or nil if this is the top level
@@ -21,6 +21,8 @@ type Command struct {
 
 // NewCommand creates a standalone command, ie one that does not take sub-
 // commands of its own.
+// If this will be a top-level command (no parent), supply a version string
+// in place of summary.
 func NewCommand(name, summary, description string, handler CommandHandler) *Command {
 	cmd := &Command{
 		Name:        name,
@@ -29,23 +31,25 @@ func NewCommand(name, summary, description string, handler CommandHandler) *Comm
 		Handler:     handler,
 	}
 
-	helpOption := StringOption("help", '?', "", "Display usage information").ValueOptional()
-	cmd.AddOption(helpOption)
+	cmd.AddOption(StringOption("help", '?', "", "Display usage information").ValueOptional())
+	cmd.AddOption(BoolOption("version", 0, false, "Display program version"))
 
 	return cmd
 }
 
-// NewCommandSuite creates a "top-level" Command, typically representing an
-// entire program. Intended for use for command suites, e.g. programs with
-// sub-commands.
-func NewCommandSuite(name, description string) *Command {
+// NewCommandSuite creates a Command that will have sub-commands.
+// If this will be a top-level command (no parent), supply a version string
+// in place of summary.
+func NewCommandSuite(name, summary, description string) *Command {
 	cmd := &Command{
 		Name:        name,
 		Description: description,
+		Summary:     summary,
 		SubCommands: make(map[string]*Command),
 		options:     make(map[string]*Option),
 	}
 
+	// Add help subcommand, and equivalently as an option
 	helpCmd := &Command{
 		Name:        "help",
 		Description: "Display usage information",
@@ -54,29 +58,28 @@ func NewCommandSuite(name, description string) *Command {
 	}
 	helpCmd.AddArg("command", "", false)
 	cmd.AddSubCommand(helpCmd)
+	cmd.AddOption(StringOption("help", '?', "", "Display usage information").ValueOptional())
 
-	helpOption := StringOption("help", '?', "", "Display usage information").ValueOptional()
-	cmd.AddOption(helpOption)
+	// Add version subcommand, and equivalently as an option
+	versionCmd := &Command{
+		Name:        "version",
+		Description: "Display program version",
+		Summary:     `Display program version`,
+		Handler:     versionHandler,
+	}
+	cmd.AddSubCommand(versionCmd)
+	cmd.AddOption(BoolOption("version", 0, false, "Display program version"))
 
 	return cmd
 }
 
 func (cmd *Command) AddSubCommand(subCmd *Command) {
-	if cmd.SubCommands == nil {
-		cmd.SubCommands = make(map[string]*Command)
-		cmd.Handler = nil
-		cmd.args = nil
-		helpCmd := &Command{
-			Name:        "help",
-			Description: "Display usage information",
-			Summary:     `Display usage information`,
-			Handler:     helpHandler,
-		}
-		helpCmd.AddArg("command", "", false)
-		cmd.AddSubCommand(helpCmd)
+	if cmd.SubCommands == nil || cmd.Handler != nil {
+		panic(fmt.Errorf("AddSubCommand: Parent command %s was not created as a CommandSuite", cmd.Name))
 	}
 	subCmd.ParentCommand = cmd
 	cmd.SubCommands[subCmd.Name] = subCmd
+	delete(subCmd.SubCommands, "version") // non-top-level command suites don't need version as command
 }
 
 func (cmd *Command) AddArg(name, defaultValue string, requireValue bool) {
@@ -229,16 +232,32 @@ func (cmd *Command) argUsage() string {
 
 func helpHandler(cfg *Config) error {
 	forCommand := cfg.CLI.Command
-	if forCommand.ParentCommand != nil {
+	if forCommand.Name == "help" && forCommand.ParentCommand != nil {
 		forCommand = forCommand.ParentCommand
 	}
-	if len(forCommand.SubCommands) > 0 && cfg.Get("command") != "" {
-		forCommandName := cfg.Get("command")
+	var forCommandName string
+	if len(cfg.CLI.ArgValues) > 0 {
+		forCommandName = cfg.CLI.ArgValues[0]
+	}
+	if len(forCommand.SubCommands) > 0 && forCommandName != "" {
 		var ok bool
 		if forCommand, ok = forCommand.SubCommands[forCommandName]; !ok {
 			return fmt.Errorf("Unknown command \"%s\"", forCommandName)
 		}
 	}
 	forCommand.Usage()
+	return nil
+}
+
+func versionHandler(cfg *Config) error {
+	cmd := cfg.CLI.Command
+	for cmd.ParentCommand != nil {
+		cmd = cmd.ParentCommand
+	}
+	version := cmd.Summary
+	if version == "" {
+		version = "not specified"
+	}
+	fmt.Println(cmd.Name, "version", version)
 	return nil
 }
