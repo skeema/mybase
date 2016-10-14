@@ -28,9 +28,8 @@ func (cli *CommandLine) parseLongArg(arg string, args *[]string, longOptionIndex
 	if !found {
 		if loose {
 			return nil
-		} else {
-			return OptionNotDefinedError{key, "CLI"}
 		}
+		return OptionNotDefinedError{key, "CLI"}
 	}
 
 	if value == "" {

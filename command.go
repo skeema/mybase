@@ -6,8 +6,13 @@ import (
 	"strings"
 )
 
+// CommandHandler is a function that can be associated with a Command as a
+// callback which implements the command's logic.
 type CommandHandler func(*Config) error
 
+// Command can represent either a command suite (program with subcommands), a
+// subcommand of another command suite, a stand-alone program without
+// subcommands, or an arbitrarily nested command suite.
 type Command struct {
 	Name          string              // Command name, as used in CLI
 	Summary       string              // Short description text. If ParentCommand is nil, represents version instead.
@@ -73,6 +78,7 @@ func NewCommandSuite(name, summary, description string) *Command {
 	return cmd
 }
 
+// AddSubCommand adds a subcommand to a command suite.
 func (cmd *Command) AddSubCommand(subCmd *Command) {
 	if cmd.SubCommands == nil || cmd.Handler != nil {
 		panic(fmt.Errorf("AddSubCommand: Parent command %s was not created as a CommandSuite", cmd.Name))
@@ -82,6 +88,7 @@ func (cmd *Command) AddSubCommand(subCmd *Command) {
 	delete(subCmd.SubCommands, "version") // non-top-level command suites don't need version as command
 }
 
+// AddArg adds a positional arg to a Command.
 func (cmd *Command) AddArg(name, defaultValue string, requireValue bool) {
 	// Validate the arg. Panic if there's a problem, since this is indicative of
 	// programmer error.
@@ -109,6 +116,8 @@ func (cmd *Command) AddArg(name, defaultValue string, requireValue bool) {
 	cmd.args = append(cmd.args, arg)
 }
 
+// AddOption adds an Option to a Command. Options represent flags/settings
+// which can be supplied via the command-line or an options file.
 func (cmd *Command) AddOption(opt *Option) {
 	if cmd.options == nil {
 		cmd.options = make(map[string]*Option)
@@ -116,8 +125,8 @@ func (cmd *Command) AddOption(opt *Option) {
 	cmd.options[opt.Name] = opt
 }
 
-// Returns a map of options for this command, recursively merged with its
-// parent command. In cases of conflicts, sub-command options override their
+// Options returns a map of options for this command, recursively merged with
+// its parent command. In cases of conflicts, sub-command options override their
 // parents / grandparents / etc. The returned map is always a copy, so
 // modifications to the map itself will not affect the original cmd.options.
 // This method does not include positional args in its return value.
@@ -155,6 +164,7 @@ func (cmd *Command) OptionValue(optionName string) (string, bool) {
 	return opt.Default, true
 }
 
+// Usage returns help instructions for a Command.
 func (cmd *Command) Usage() {
 	invocation := cmd.Name
 	current := cmd

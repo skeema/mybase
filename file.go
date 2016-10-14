@@ -13,11 +13,17 @@ import (
 	"unicode"
 )
 
+// Section represents a labeled section of an option file. Option values that
+// precede any named section are still associated with a Section object, but
+// with a Name of "".
 type Section struct {
 	Name   string
 	Values map[string]string
 }
 
+// File represents a form of ini-style option file. Lines can contain
+// [sections], option=value, option without value (usually for bools), or
+// comments.
 type File struct {
 	Dir                  string
 	Name                 string
@@ -54,10 +60,12 @@ func (f *File) Exists() bool {
 	return (err == nil)
 }
 
+// Path returns the file's full absolute path with filename.
 func (f *File) Path() string {
 	return path.Join(f.Dir, f.Name)
 }
 
+// Write writes out the file's contents to disk.
 func (f *File) Write(overwrite bool) error {
 	lines := make([]string, 0)
 	for n, section := range f.sections {
@@ -116,6 +124,8 @@ func (f *File) Read() error {
 	return nil
 }
 
+// Parse parses the file contents into a series of Sections. A Config object
+// must be supplied so that the list of valid Options is known.
 func (f *File) Parse(cfg *Config) error {
 	if !f.read {
 		if err := f.Read(); err != nil {
@@ -229,6 +239,8 @@ func (f *File) OptionValue(optionName string) (string, bool) {
 	return "", false
 }
 
+// SetOptionValue sets an option value in the named section. This is not
+// persisted to the file until Write is called on the File.
 func (f *File) SetOptionValue(sectionName, optionName, value string) {
 	section := f.getOrCreateSection(sectionName)
 	section.Values[optionName] = value

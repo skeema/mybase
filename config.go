@@ -15,6 +15,9 @@ type OptionValuer interface {
 	OptionValue(optionName string) (value string, ok bool)
 }
 
+// Config represents a list of sources for option values -- the command-line
+// plus zero or more option files, or any other source implementing the
+// OptionValuer interface.
 type Config struct {
 	CLI            *CommandLine            // Parsed command-line
 	sources        []OptionValuer          // Sources of option values, excluding CLI or Command; higher indexes override lower indexes
@@ -23,6 +26,11 @@ type Config struct {
 	dirty          bool                    // true if source list has changed, meaning next access needs to recompute caches
 }
 
+// NewConfig creates a Config object, given a CommandLine and any arbitrary
+// number of other OptionValuer option sources. The order of sources matters:
+// in case of conflicts (multiple sources providing the same option value),
+// later sources override earlier sources. The CommandLine always overrides
+// other sources, and should not be supplied redundantly via sources.
 func NewConfig(cli *CommandLine, sources ...OptionValuer) *Config {
 	return &Config{
 		CLI:     cli,
@@ -45,11 +53,16 @@ func (cfg *Config) Clone() *Config {
 	}
 }
 
+// AddSource adds a new OptionValuer to cfg. It will override previously-added
+// sources, with the exception of the CommandLine, which always takes
+// precedence.
 func (cfg *Config) AddSource(source OptionValuer) {
 	cfg.sources = append(cfg.sources, source)
 	cfg.dirty = true
 }
 
+// HandleCommand executes the CommandHandler callback associated with the
+// Command that was parsed on the CommandLine.
 func (cfg *Config) HandleCommand() error {
 	return cfg.CLI.Command.Handler(cfg)
 }
