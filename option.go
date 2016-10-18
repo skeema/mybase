@@ -33,7 +33,7 @@ type Option struct {
 // a value, though this can be overridden via ValueOptional().
 func StringOption(long string, short rune, defaultValue string, description string) *Option {
 	return &Option{
-		Name:         long,
+		Name:         strings.Replace(long, "_", "-", -1),
 		Shorthand:    short,
 		Type:         OptionTypeString,
 		Default:      defaultValue,
@@ -52,7 +52,7 @@ func BoolOption(long string, short rune, defaultValue bool, description string) 
 		defaultAsStr = "0"
 	}
 	return &Option{
-		Name:         long,
+		Name:         strings.Replace(long, "_", "-", -1),
 		Shorthand:    short,
 		Type:         OptionTypeBool,
 		Default:      defaultAsStr,

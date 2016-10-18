@@ -88,7 +88,8 @@ func (cmd *Command) AddSubCommand(subCmd *Command) {
 	delete(subCmd.SubCommands, "version") // non-top-level command suites don't need version as command
 }
 
-// AddArg adds a positional arg to a Command.
+// AddArg adds a positional arg to a Command. If requireValue is false, this arg
+// is considered optional and its defaultValue will be used if omitted.
 func (cmd *Command) AddArg(name, defaultValue string, requireValue bool) {
 	// Validate the arg. Panic if there's a problem, since this is indicative of
 	// programmer error.

@@ -67,6 +67,8 @@ func (cfg *Config) HandleCommand() error {
 	return cfg.CLI.Command.Handler(cfg)
 }
 
+// rebuild iterates over all sources, to construct a single cached key-value
+// lookup map. This improves performance of subsequent option value lookups.
 func (cfg *Config) rebuild() {
 	allSources := make([]OptionValuer, 1, len(cfg.sources)+2)
 
@@ -224,7 +226,7 @@ func (cfg *Config) GetIntOrDefault(name string) int {
 		defaultValue, _ := cfg.CLI.Command.OptionValue(name)
 		value, err = strconv.Atoi(defaultValue)
 		if err != nil {
-			panic(fmt.Errorf("Assertion failed: default value for option %s is %s, which fails int parsing"))
+			panic(fmt.Errorf("Assertion failed: default value for option %s is %s, which fails int parsing", name, defaultValue))
 		}
 	}
 	return value
