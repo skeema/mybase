@@ -11,6 +11,7 @@ A light-weight Golang framework for building command-line applications
 * Supports command suites / subcommands, including nesting
 * Extensible to other option file formats/sources via a simple one-method interface
 * Automatic help/usage flags and subcommands
+* Only uses the Go standard library -- no external dependencies
 
 ## Motivation
 
@@ -32,7 +33,7 @@ MySQL is a trademark of Oracle Corp.
 
 mycli should be considered alpha software. The API is relatively stable, but documentation, examples, and unit tests all still need to be written.
 
-## Future development
+### Future development
 
 The following features are **not** yet implemented, but are planned for future releases:
 
