@@ -46,11 +46,16 @@ func NewFile(paths ...string) *File {
 		pathAndName = cleanPath
 	}
 
+	defaultSection := &Section{
+		Name:   "",
+		Values: make(map[string]string),
+	}
+
 	return &File{
 		Dir:          path.Dir(pathAndName),
 		Name:         path.Base(pathAndName),
-		sections:     make([]*Section, 0),
-		sectionIndex: make(map[string]*Section),
+		sections:     []*Section{defaultSection},
+		sectionIndex: map[string]*Section{"": defaultSection},
 	}
 }
 
@@ -133,12 +138,7 @@ func (f *File) Parse(cfg *Config) error {
 		}
 	}
 
-	section := &Section{
-		Name:   "",
-		Values: make(map[string]string),
-	}
-	f.sections = append(f.sections, section)
-	f.sectionIndex[""] = section
+	section := f.sectionIndex[""]
 
 	var lineNumber int
 	scanner := bufio.NewScanner(strings.NewReader(f.contents))
