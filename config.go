@@ -156,6 +156,11 @@ func (cfg *Config) OnCLI(name string) bool {
 	return source == cfg.CLI
 }
 
+// Source returns the OptionValuer that provided the specified option.
+func (cfg *Config) Source(name string) OptionValuer {
+	return cfg.unifiedSources[name]
+}
+
 // FindOption returns an Option by name. It first searches the current command
 // hierarchy, but if it fails to find the option there, it then searches all
 // other command hierarchies as well. This makes it suitable for use in parsing
