@@ -129,6 +129,13 @@ func (cfg *Config) rebuildIfDirty() {
 	}
 }
 
+// MarkDirty causes the config to rebuild itself on next option lookup. This
+// is only needed in situations where a source is known to have changed since
+// the previous lookup.
+func (cfg *Config) MarkDirty() {
+	cfg.dirty = true
+}
+
 // Changed returns true if the specified option name has been set somewhere, or
 // false if not (meaning it is still equal to its default value)
 func (cfg *Config) Changed(name string) bool {
