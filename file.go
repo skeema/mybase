@@ -87,7 +87,9 @@ func (f *File) Write(overwrite bool) error {
 		for k, v := range section.Values {
 			lines = append(lines, fmt.Sprintf("%s=%s", k, v))
 		}
-		if n < len(f.sections)-1 {
+		// Append a blank line after the section, unless it was the last one, or
+		// it was the default section and had no values
+		if n < len(f.sections)-1 && (section.Name != "" || len(section.Values) > 0) {
 			lines = append(lines, "")
 		}
 	}
