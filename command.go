@@ -215,12 +215,15 @@ func (cmd *Command) Usage() {
 }
 
 func (cmd *Command) minArgs() int {
+	// If we hit an optional arg at slice position n, this means there
+	// were n required args prior to the optional arg.
 	for n, arg := range cmd.args {
 		if !arg.RequireValue {
 			return n
 		}
 	}
-	return 0
+	// If all args are required, the min arg count is the number of args.
+	return len(cmd.args)
 }
 
 func (cmd *Command) argUsage() string {
