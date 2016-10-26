@@ -70,7 +70,14 @@ func (f *File) Path() string {
 	return path.Join(f.Dir, f.Name)
 }
 
-// Write writes out the file's contents to disk.
+// Write writes out the file's contents to disk. If overwrite=false and the
+// file already exists, an error will be returned.
+// Note that if overwrite=true and the file already exists, any comments
+// and extra whitespace in the file will be lost upon re-writing. All option
+// names and values will be normalized in the rewritten file. Any "loose-"
+// prefix option names that did not exist will not be written, and any that
+// did exist will have their "loose-" prefix stripped. These shortcomings will
+// be fixed in a future release.
 func (f *File) Write(overwrite bool) error {
 	lines := make([]string, 0)
 	for n, section := range f.sections {
@@ -201,7 +208,7 @@ func (f *File) UseSection(names ...string) error {
 			continue
 		}
 		already[name] = true
-		if _, ok := f.sectionIndex[name]; ok {
+		if f.HasSection(name) {
 			f.selected = append(f.selected, name)
 		} else {
 			notFound = append(notFound, name)
@@ -215,6 +222,30 @@ func (f *File) UseSection(names ...string) error {
 		return nil
 	}
 	return fmt.Errorf("File %s missing section: %s", f.Path(), strings.Join(notFound, ", "))
+}
+
+// HasSection returns true if the file has a section with the supplied name.
+func (f *File) HasSection(name string) bool {
+	_, ok := f.sectionIndex[name]
+	return ok
+}
+
+// SectionsWithOption returns a list of section names that set the supplied
+// option name.
+func (f *File) SectionsWithOption(optionName string) []string {
+	result := make([]string, 0, len(f.sections))
+	for _, section := range f.sections {
+		if _, ok := section.Values[optionName]; ok {
+			result = append(result, section.Name)
+		}
+	}
+	return result
+}
+
+// SomeSectionHasOption returns true if at least one section sets the supplied
+// option name.
+func (f *File) SomeSectionHasOption(optionName string) bool {
+	return len(f.SectionsWithOption(optionName)) > 0
 }
 
 // OptionValue returns the value for the requested option from the option file.
@@ -241,6 +272,10 @@ func (f *File) OptionValue(optionName string) (string, bool) {
 
 // SetOptionValue sets an option value in the named section. This is not
 // persisted to the file until Write is called on the File.
+// If the caller plans to subsequently read configuration values from this
+// same File object, it is the caller's responsibility to normalize the
+// optionName and value prior to calling this method, and call MarkDirty() on
+// any relevant Configs. These shortcomings will be fixed in a future release.
 func (f *File) SetOptionValue(sectionName, optionName, value string) {
 	section := f.getOrCreateSection(sectionName)
 	section.Values[optionName] = value
