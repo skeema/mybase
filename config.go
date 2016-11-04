@@ -136,13 +136,30 @@ func (cfg *Config) MarkDirty() {
 	cfg.dirty = true
 }
 
-// Changed returns true if the specified option name has been set somewhere, or
-// false if not (meaning it is still equal to its default value)
+// Changed returns true if the specified option name has been set, and its
+// set value differs from the option's default value.
 func (cfg *Config) Changed(name string) bool {
+	if !cfg.Supplied(name) {
+		return false
+	}
+	opt := cfg.FindOption(name)
+	return (cfg.unifiedValues[name] != opt.Default)
+}
+
+// Supplied returns true if the specified option name has been set by some
+// configuration source, or false if not.
+//
+// Note that Supplied returns true even if some source has set the option to a
+// value *equal to its default value*. If you want to check if an option
+// *differs* from its default value (the more common situation), use Changed. As
+// an example, imagine that one source sets an option to a non-default value,
+// but some other higher-priority source explicitly sets it back to its default
+// value. In this case, Supplied returns true but Changed returns false.
+func (cfg *Config) Supplied(name string) bool {
 	cfg.rebuildIfDirty()
 	source, ok := cfg.unifiedSources[name]
 	if !ok {
-		panic(fmt.Errorf("Assertion failed: called Changed on unknown option %s", name))
+		panic(fmt.Errorf("Assertion failed: called Supplied on unknown option %s", name))
 	}
 	switch source.(type) {
 	case *Command:
