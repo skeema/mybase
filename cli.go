@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 )
 
 // CommandLine stores state relating to executing an application.
@@ -33,9 +34,11 @@ func (cli *CommandLine) parseLongArg(arg string, args *[]string, longOptionIndex
 	}
 
 	if value == "" {
-		if opt.RequireValue {
+		// Even if value required, we allow --long-arg='', so we need to distinguish
+		// between lack-of-arg vs intentionally-blank arg
+		if opt.RequireValue && !strings.ContainsRune(arg, '=') {
 			// Value required: allow format "--foo bar" in addition to "--foo=bar"
-			if len(*args) == 0 || (*args)[0][0] == '-' {
+			if len(*args) == 0 || strings.HasPrefix((*args)[0], "-") {
 				return OptionMissingValueError{opt.Name, "CLI"}
 			}
 			value = (*args)[0]
@@ -68,7 +71,7 @@ func (cli *CommandLine) parseShortArgs(arg string, args *[]string, shortOptionIn
 			value = string(runeList)
 			done = true
 		} else if opt.RequireValue { // "-x value", only supported if opt requires a value
-			if len(*args) > 0 && (*args)[0][0] != '-' {
+			if len(*args) > 0 && !strings.HasPrefix((*args)[0], "-") {
 				value = (*args)[0]
 				*args = (*args)[1:]
 			} else {
