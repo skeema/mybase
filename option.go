@@ -118,7 +118,11 @@ func (opt *Option) Usage(maxNameLength int) string {
 	}
 
 	if opt.HasNonzeroDefault() {
-		def = fmt.Sprintf(" (default %s)", opt.PrintableDefault())
+		if opt.Type == OptionTypeBool {
+			def = fmt.Sprintf(" (enabled by default; disable with --skip-%s)", opt.Name)
+		} else {
+			def = fmt.Sprintf(" (default %s)", opt.PrintableDefault())
+		}
 	}
 
 	maxNameLength += 9 // additional space for worst-case "[=string]" suffix
