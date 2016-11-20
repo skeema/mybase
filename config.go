@@ -264,15 +264,21 @@ func (cfg *Config) GetIntOrDefault(name string) int {
 }
 
 // GetEnum returns an option's value as a string if it matches one of the
-// supplied allowed values. Otherwise an error is returned. Matching is case-
-// insensitive, but the returned value will always be of the same case as it
-// was supplied in allowedValues. Panics if the option does not exist.
+// supplied allowed values, or its default value (which need not be supplied).
+// Otherwise an error is returned. Matching is case-insensitive, but the
+// returned value will always be of the same case as it was supplied in
+// allowedValues. Panics if the option does not exist.
 func (cfg *Config) GetEnum(name string, allowedValues ...string) (string, error) {
 	value := strings.ToLower(cfg.Get(name))
+	defaultValue, _ := cfg.CLI.Command.OptionValue(name)
+	allowedValues = append(allowedValues, defaultValue)
 	for _, allowedVal := range allowedValues {
 		if value == strings.ToLower(allowedVal) {
 			return allowedVal, nil
 		}
+	}
+	for n := range allowedValues {
+		allowedValues[n] = fmt.Sprintf(`"%s"`, allowedValues[n])
 	}
 	allAllowed := strings.Join(allowedValues, ", ")
 	return "", fmt.Errorf("Option %s can only be set to one of these values: %s", name, allAllowed)

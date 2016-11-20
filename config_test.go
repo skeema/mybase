@@ -27,8 +27,9 @@ func getConfig(values map[string]string) *Config {
 
 func TestGetEnum(t *testing.T) {
 	optionValues := map[string]string{
-		"foo":  "bar",
-		"caps": "SHOUTING",
+		"foo":   "bar",
+		"caps":  "SHOUTING",
+		"blank": "",
 	}
 	cfg := getConfig(optionValues)
 
@@ -47,6 +48,10 @@ func TestGetEnum(t *testing.T) {
 	value, err = cfg.GetEnum("caps", "yelling", "shouting")
 	if value != "shouting" || err != nil {
 		t.Errorf("Expected shouting,nil; found %s,%s", value, err)
+	}
+	value, err = cfg.GetEnum("blank", "nonblank1", "nonblank2")
+	if value != "" || err != nil {
+		t.Errorf("Expected empty string to be allowed since it is the default value, but instead found %s,%s", value, err)
 	}
 }
 
