@@ -66,6 +66,7 @@ func TestGetBytes(t *testing.T) {
 		"megs2-ok":      "440mB",
 		"gigs-ok":       "4GB",
 		"tera-fail":     "55t",
+		"blank-ok":      "",
 	}
 	cfg := getConfig(optionValues)
 
@@ -91,6 +92,7 @@ func TestGetBytes(t *testing.T) {
 		"megs2-ok":      440 * 1024 * 1024,
 		"gigs-ok":       4 * 1024 * 1024 * 1024,
 		"tera-fail":     0,
+		"blank-ok":      0,
 	}
 	for name, expect := range expected {
 		assertBytes(name, expect)
