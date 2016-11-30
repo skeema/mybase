@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 )
 
 // Section represents a labeled section of an option file. Option values that
@@ -358,6 +357,8 @@ func parseLine(line string) (*parsedLine, error) {
 	var inValue, escapeNext bool
 	var inQuote rune
 
+	// Parse out any inline comment, being careful to still allow escaped hashes or
+	// hashes inside of quoted values
 	for n, c := range line {
 		if escapeNext {
 			escapeNext = false
@@ -403,28 +404,5 @@ func parseLine(line string) (*parsedLine, error) {
 	} else {
 		result.kind = lineTypeKeyOnly
 	}
-
-	// If there's a quote char at the beginning of the value, the entire value
-	// must be quoted, and any occurrence of the quote char in the middle of the
-	// value must be escaped.
-	if len(result.value) > 0 && (result.value[0] == '`' || result.value[0] == '"' || result.value[0] == '\'') {
-		quote, _ := utf8.DecodeRuneInString(result.value)
-		if last, _ := utf8.DecodeLastRuneInString(result.value); quote != last {
-			return nil, errors.New("Entire value must be quoted if beginning with a quote character")
-		}
-		for _, c := range result.value[1 : len(result.value)-1] {
-			if escapeNext {
-				escapeNext = false
-				continue
-			}
-			switch c {
-			case '\\':
-				escapeNext = true
-			case quote:
-				return nil, errors.New("Entire value must be quoted if beginning with a quote character")
-			}
-		}
-	}
-
 	return result, nil
 }

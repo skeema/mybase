@@ -25,6 +25,57 @@ func getConfig(values map[string]string) *Config {
 	return NewConfig(cli, dummySource(values))
 }
 
+func TestGetRaw(t *testing.T) {
+	optionValues := map[string]string{
+		"basic":     "foo",
+		"nothing":   "",
+		"single":    "'quoted'",
+		"double":    `"quoted"`,
+		"backtick":  "`quoted`",
+		"middle":    "something 'something' something",
+		"beginning": `"something" something`,
+		"end":       "something `something`",
+	}
+	cfg := getConfig(optionValues)
+
+	for name, expected := range optionValues {
+		if found := cfg.GetRaw(name); found != expected {
+			t.Errorf("Expected GetRaw(%s) to be %s, instead found %s", name, expected, found)
+		}
+	}
+}
+
+func TestGet(t *testing.T) {
+	optionValues := map[string]string{
+		"basic":     "foo",
+		"nothing":   "",
+		"single":    "'quoted'",
+		"double":    `"quoted"`,
+		"backtick":  "`quoted`",
+		"middle":    "something 'something' something",
+		"beginning": `"something" something`,
+		"end":       "something `something`",
+	}
+	cfg := getConfig(optionValues)
+
+	expectedValues := map[string]string{
+		"basic":     "foo",
+		"nothing":   "",
+		"single":    "quoted",
+		"double":    "quoted",
+		"backtick":  "quoted",
+		"middle":    "something 'something' something",
+		"beginning": `"something" something`,
+		"end":       "something `something`",
+	}
+
+	for name, expected := range expectedValues {
+		if found := cfg.Get(name); found != expected {
+			t.Errorf("Expected Get(%s) to be %s, instead found %s", name, expected, found)
+		}
+	}
+}
+
 func TestGetEnum(t *testing.T) {
 	optionValues := map[string]string{
 		"foo":   "bar",

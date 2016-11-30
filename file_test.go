@@ -69,7 +69,6 @@ func TestParse(t *testing.T) {
 		"mystring=hello\ninvalid=fail",
 		"mybool=true\nmystring\n",
 		"[foo\nmybool\n",
-		"mystring='hello' world",
 	}
 	for _, contents := range badContents {
 		f, err = getParsedFile(cfg, false, contents)
@@ -116,6 +115,8 @@ func TestParseLine(t *testing.T) {
 	assertLine("this  =  that  =  whatever  # okie dokie", "", "this", "that  =  whatever", " okie dokie", lineTypeKeyValue, false)
 	assertLine("loose_something=\"quoted value # ignores value's # comments\" # until after value's \"quotes\"", "", "something", "\"quoted value # ignores value's # comments\"", " until after value's \"quotes\"", lineTypeKeyValue, true)
 	assertLine("  backticks-work = `yep working fine`   ", "", "backticks-work", "`yep working fine`", "", lineTypeKeyValue, false)
+	assertLine("foo='first' part of value only is quoted", "", "foo", "'first' part of value only is quoted", "", lineTypeKeyValue, false)
+	assertLine("foo='first' and last parts of value are 'quoted'", "", "foo", "'first' and last parts of value are 'quoted'", "", lineTypeKeyValue, false)
 
 	assertLineHasErr("[section")
 	assertLineHasErr("[section   # hmmm")
@@ -125,7 +126,5 @@ func TestParseLine(t *testing.T) {
 	assertLineHasErr(`no-terminator = "this quote does not end`)
 	assertLineHasErr(`foo=bar\`)
 	assertLineHasErr("foo=\"mismatched quotes`")
-	assertLineHasErr("foo='first' part of value only is quoted")
-	assertLineHasErr("foo='first' and last parts of value are 'quoted'")
 	assertLineHasErr("foo=`unbalanced`quotes`")
 }
