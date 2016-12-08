@@ -46,33 +46,53 @@ func TestGetRaw(t *testing.T) {
 }
 
 func TestGet(t *testing.T) {
-	optionValues := map[string]string{
-		"basic":     "foo",
-		"nothing":   "",
-		"single":    "'quoted'",
-		"double":    `"quoted"`,
-		"backtick":  "`quoted`",
-		"middle":    "something 'something' something",
-		"beginning": `"something" something`,
-		"end":       "something `something`",
-	}
-	cfg := getConfig(optionValues)
-
-	expectedValues := map[string]string{
-		"basic":     "foo",
-		"nothing":   "",
-		"single":    "quoted",
-		"double":    "quoted",
-		"backtick":  "quoted",
-		"middle":    "something 'something' something",
-		"beginning": `"something" something`,
-		"end":       "something `something`",
-	}
-
-	for name, expected := range expectedValues {
-		if found := cfg.Get(name); found != expected {
-			t.Errorf("Expected Get(%s) to be %s, instead found %s", name, expected, found)
+	assertBasicGet := func(name, value string) {
+		optionValues := map[string]string{
+			name: value,
 		}
+		cfg := getConfig(optionValues)
+		if actual := cfg.Get(name); actual != value {
+			t.Errorf("Expected Get(%s) to return %s, instead found %s", name, value, actual)
+		}
+	}
+	assertQuotedGet := func(name, value, expected string) {
+		optionValues := map[string]string{
+			name: value,
+		}
+		cfg := getConfig(optionValues)
+		if actual := cfg.Get(name); actual != expected {
+			t.Errorf("Expected Get(%s) to return %s, instead found %s", name, expected, actual)
+		}
+	}
+
+	basicValues := map[string]string{
+		"basic":      "foo",
+		"nothing":    "",
+		"uni-start":  "☃snowperson",
+		"uni-end":    "snowperson☃",
+		"uni-both":   "☃snowperson☃",
+		"middle":     "something 'something' something",
+		"beginning":  `"something" something`,
+		"end":        "something `something`",
+		"no-escape1": `something\'s still backslashed`,
+		"no-escape2": `'even this\'s still backslashed', they said`,
+	}
+	for name, value := range basicValues {
+		assertBasicGet(name, value)
+	}
+
+	quotedValues := [][3]string{
+		{"single", "'quoted'", "quoted"},
+		{"double", `"quoted"`, "quoted"},
+		{"backtick", "`quoted`", "quoted"},
+		{"uni-middle", `"yay ☃ snowpeople"`, `yay ☃ snowpeople`},
+		{"esc-quote", `'something\'s escaped'`, `something's escaped`},
+		{"esc-esc", `"c:\\tacotown"`, `c:\tacotown`},
+		{"esc-rando", `'why\ whatevs'`, `why whatevs`},
+		{"esc-uni", `'escaped snowpeople \☃ oh noes'`, `escaped snowpeople ☃ oh noes`},
+	}
+	for _, tuple := range quotedValues {
+		assertQuotedGet(tuple[0], tuple[1], tuple[2])
 	}
 }
 
