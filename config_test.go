@@ -1,6 +1,7 @@
 package mycli
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -94,6 +95,36 @@ func TestGet(t *testing.T) {
 	for _, tuple := range quotedValues {
 		assertQuotedGet(tuple[0], tuple[1], tuple[2])
 	}
+}
+
+func TestGetSlice(t *testing.T) {
+	assertGetSlice := func(optionValue string, delimiter rune, unwrapFull bool, expected ...string) {
+		if expected == nil {
+			expected = make([]string, 0)
+		}
+		cfg := getConfig(map[string]string{"option-name": optionValue})
+		if actual := cfg.GetSlice("option-name", delimiter, unwrapFull); !reflect.DeepEqual(actual, expected) {
+			t.Errorf("Expected GetSlice(\"...\", '%c', %t) on %#v to return %#v, instead found %#v", delimiter, unwrapFull, optionValue, expected, actual)
+		}
+	}
+
+	assertGetSlice("hello", ',', false, "hello")
+	assertGetSlice(`hello\`, ',', false, `hello\`)
+	assertGetSlice("hello, world", ',', false, "hello", "world")
+	assertGetSlice(`outside,"inside, ok?",   also outside`, ',', false, "outside", "inside, ok?", "also outside")
+	assertGetSlice(`escaped\,delimiter doesn\'t split, ok?`, ',', false, `escaped\,delimiter doesn\'t split`, "ok?")
+	assertGetSlice(`quoted "mid, value" doesn\'t split, either, duh`, ',', false, `quoted "mid, value" doesn\'t split`, "either", "duh")
+	assertGetSlice(`'escaping\'s ok to prevent early quote end', yay," ok "`, ',', false, "escaping's ok to prevent early quote end", "yay", "ok")
+	assertGetSlice(" space   delimiter", ' ', false, "space", "delimiter")
+	assertGetSlice(`'fully wrapped in single quotes, commas still split tho, "nested\'s ok"'`, ',', false, "fully wrapped in single quotes, commas still split tho, \"nested's ok\"")
+	assertGetSlice(`'fully wrapped in single quotes, commas still split tho, "nested\'s ok"'`, ',', true, "fully wrapped in single quotes", "commas still split tho", "nested's ok")
+	assertGetSlice(`"'quotes',get \"tricky\", right, 'especially \\\' nested'"`, ',', true, "quotes", `get "tricky"`, "right", "especially ' nested")
+	assertGetSlice("", ',', false)
+	assertGetSlice("   ", ',', false)
+	assertGetSlice("   ", ' ', false)
+	assertGetSlice("``", ',', true)
+	assertGetSlice(" `  `  ", ',', true)
+	assertGetSlice(" `  `  ", ' ', true)
 }
 
 func TestGetEnum(t *testing.T) {
