@@ -200,3 +200,30 @@ func TestGetBytes(t *testing.T) {
 		assertBytes(name, expect)
 	}
 }
+
+func TestGetRegexp(t *testing.T) {
+	optionValues := map[string]string{
+		"valid":   "^test",
+		"invalid": "+++",
+		"blank":   "",
+	}
+	cfg := getConfig(optionValues)
+
+	re, err := cfg.GetRegexp("valid")
+	if err != nil {
+		t.Errorf("Unexpected error for GetRegexp(\"valid\"): %s", err)
+	}
+	if re == nil || !re.MatchString("testing") {
+		t.Error("Regexp returned by GetRegexp(\"valid\") not working as expected")
+	}
+
+	re, err = cfg.GetRegexp("invalid")
+	if re != nil || err == nil {
+		t.Errorf("Expected invalid regexp to return nil and err, instead returned %v, %v", re, err)
+	}
+
+	re, err = cfg.GetRegexp("blank")
+	if re != nil || err != nil {
+		t.Errorf("Expected blank regexp to return nil, nil; instead returned %v, %v", re, err)
+	}
+}
