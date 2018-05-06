@@ -335,7 +335,7 @@ func parseLine(line string) (*parsedLine, error) {
 	}
 	if line[0] == ';' || line[0] == '#' {
 		result.kind = lineTypeComment
-		result.comment = line[1:len(line)]
+		result.comment = line[1:]
 		return result, nil
 	}
 
@@ -350,7 +350,7 @@ func parseLine(line string) (*parsedLine, error) {
 			if hashIndex > -1 {
 				after = line[endIndex+1 : hashIndex]
 			} else {
-				after = line[endIndex+1 : len(line)]
+				after = line[endIndex+1:]
 			}
 			if len(strings.TrimSpace(after)) > 0 {
 				return nil, errors.New("extra characters after section name")
@@ -359,7 +359,7 @@ func parseLine(line string) (*parsedLine, error) {
 		result.kind = lineTypeSectionHeader
 		result.sectionName = line[1:endIndex]
 		if hashIndex > -1 {
-			result.comment = line[hashIndex+1 : len(line)]
+			result.comment = line[hashIndex+1:]
 		}
 		return result, nil
 	}
@@ -376,7 +376,7 @@ func parseLine(line string) (*parsedLine, error) {
 			continue
 		}
 		if c == '#' && inQuote == 0 {
-			result.comment = line[n+1 : len(line)]
+			result.comment = line[n+1:]
 			line = line[0:n]
 			break
 		}
