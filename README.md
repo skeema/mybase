@@ -1,5 +1,9 @@
 # mybase
 
+[![build status](https://img.shields.io/travis/skeema/mybase/master.svg)](http://travis-ci.org/skeema/mybase)
+[![godoc](https://img.shields.io/badge/godoc-master-blue.svg)](https://godoc.org/github.com/skeema/mybase)
+
+
 A light-weight Golang framework for building command-line applications, with MySQL-like option handling
 
 ## Features
