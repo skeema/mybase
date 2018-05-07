@@ -92,14 +92,14 @@ func (cfg *Config) rebuild() {
 	// are treated as a special-case (not placed in sources and work differently
 	// than normal options, since they cannot appear in option files)
 	for pos, arg := range cfg.CLI.Command.args {
-		cfg.unifiedSources[arg.Name] = cfg.CLI
-		if pos < len(cfg.CLI.ArgValues) {
+		if pos < len(cfg.CLI.ArgValues) { // supplied on CLI
+			cfg.unifiedSources[arg.Name] = cfg.CLI
 			cfg.unifiedValues[arg.Name] = cfg.CLI.ArgValues[pos]
 			delete(options, arg.Name) // shadow any normal option that has same name
-		} else {
-			// If the arg was optional and not supplied on CLI, use its default value.
+		} else { // not supplied on CLI - using default value
 			// In this case we intentionally DON'T shadow any normal option with same
 			// name, since a supplied option should override an unsupplied arg default.
+			cfg.unifiedSources[arg.Name] = cfg.CLI.Command
 			cfg.unifiedValues[arg.Name] = arg.Default
 		}
 	}
@@ -160,11 +160,7 @@ func (cfg *Config) Changed(name string) bool {
 // but some other higher-priority source explicitly sets it back to its default
 // value. In this case, Supplied returns true but Changed returns false.
 func (cfg *Config) Supplied(name string) bool {
-	cfg.rebuildIfDirty()
-	source, ok := cfg.unifiedSources[name]
-	if !ok {
-		panic(fmt.Errorf("Assertion failed: called Supplied on unknown option %s", name))
-	}
+	source := cfg.Source(name)
 	switch source.(type) {
 	case *Command:
 		return false
@@ -174,19 +170,21 @@ func (cfg *Config) Supplied(name string) bool {
 }
 
 // OnCLI returns true if the specified option name was set on the command-line,
-// or false otherwise.
+// or false otherwise. If the option does not exist, panics to indicate
+// programmer error.
 func (cfg *Config) OnCLI(name string) bool {
+	return cfg.Source(name) == cfg.CLI
+}
+
+// Source returns the OptionValuer that provided the specified option. If the
+// option does not exist, panics to indicate programmer error.
+func (cfg *Config) Source(name string) OptionValuer {
 	cfg.rebuildIfDirty()
 	source, ok := cfg.unifiedSources[name]
 	if !ok {
-		panic(fmt.Errorf("Assertion failed: called OnCLI on unknown option %s", name))
+		panic(fmt.Errorf("Assertion failed: option %s does not exist", name))
 	}
-	return source == cfg.CLI
-}
-
-// Source returns the OptionValuer that provided the specified option.
-func (cfg *Config) Source(name string) OptionValuer {
-	return cfg.unifiedSources[name]
+	return source
 }
 
 // FindOption returns an Option by name. It first searches the current command
@@ -200,11 +198,21 @@ func (cfg *Config) FindOption(name string) *Option {
 	if opt, ok := myOptions[name]; ok {
 		return opt
 	}
+	for _, arg := range cfg.CLI.Command.args { // args are option-like, but stored differently
+		if arg.Name == name {
+			return arg
+		}
+	}
 
 	var helper func(*Command) *Option
 	helper = func(cmd *Command) *Option {
 		if opt, ok := cmd.options[name]; ok {
 			return opt
+		}
+		for _, arg := range cmd.args {
+			if arg.Name == name {
+				return arg
+			}
 		}
 		for _, sub := range cmd.SubCommands {
 			opt := helper(sub)
