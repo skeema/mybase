@@ -6,16 +6,9 @@ import (
 	"testing"
 )
 
-type dummySource map[string]string
-
-func (source dummySource) OptionValue(optionName string) (string, bool) {
-	val, ok := source[optionName]
-	return val, ok
-}
-
-// getConfig returns a stub config based on a single map of key->value string
+// simpleConfig returns a stub config based on a single map of key->value string
 // pairs. All keys in the map will automatically be considered valid options.
-func getConfig(values map[string]string) *Config {
+func simpleConfig(values map[string]string) *Config {
 	cmd := NewCommand("test", "1.0", "this is for testing", nil)
 	for key := range values {
 		cmd.AddOption(StringOption(key, 0, "", key))
@@ -23,7 +16,74 @@ func getConfig(values map[string]string) *Config {
 	cli := &CommandLine{
 		Command: cmd,
 	}
-	return NewConfig(cli, dummySource(values))
+	return NewConfig(cli, SimpleSource(values))
+}
+
+// simpleCommand returns a standalone command for testing purposes
+func simpleCommand() *Command {
+	cmd := NewCommand("mycommand", "summary", "description", nil)
+	cmd.AddOption(StringOption("visible", 0, "", "dummy description"))
+	cmd.AddOption(StringOption("hidden", 0, "somedefault", "dummy description").Hidden())
+	cmd.AddOption(StringOption("hasshort", 's', "", "dummy description"))
+	cmd.AddOption(BoolOption("bool1", 'b', false, "dummy description"))
+	cmd.AddOption(BoolOption("bool2", 'B', false, "dummy description"))
+	cmd.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
+	cmd.AddArg("required", "", true)
+	cmd.AddArg("optional", "hello", false)
+	return cmd
+}
+
+// simpleCommandSuite returns a command suite for testing purposes
+func simpleCommandSuite() *Command {
+	suite := NewCommandSuite("mycommand", "summary", "description")
+	suite.AddOption(StringOption("visible", 0, "", "dummy description"))
+	suite.AddOption(StringOption("hidden", 0, "somedefault", "dummy description").Hidden())
+	suite.AddOption(StringOption("hasshort", 's', "", "dummy description"))
+	suite.AddOption(BoolOption("bool1", 'b', false, "dummy description"))
+	suite.AddOption(BoolOption("bool2", 'B', false, "dummy description"))
+	suite.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
+
+	cmd1 := NewCommand("one", "summary", "description", nil)
+	cmd1.AddOption(StringOption("visible", 0, "newdefault", "dummy description")) // changed default
+	cmd1.AddOption(StringOption("hidden", 0, "somedefault", "dummy description")) // no longer hidden
+	cmd1.AddOption(StringOption("newopt", 'n', "", "dummy description"))
+	suite.AddSubCommand(cmd1)
+
+	cmd2 := NewCommand("two", "summary", "description", nil)
+	cmd2.AddArg("optional", "hello", false)
+	suite.AddSubCommand(cmd2)
+
+	return suite
+}
+
+func TestOptionStatus(t *testing.T) {
+	assertOptionStatus := func(cfg *Config, name string, expectChanged, expectSupplied, expectOnCLI bool) {
+		t.Helper()
+		if cfg.Changed(name) != expectChanged {
+			t.Errorf("Expected cfg.Changed(%s)==%t, but instead returned %t", name, expectChanged, !expectChanged)
+		}
+		if cfg.Supplied(name) != expectSupplied {
+			t.Errorf("Expected cfg.Supplied(%s)==%t, but instead returned %t", name, expectSupplied, !expectSupplied)
+		}
+		if cfg.OnCLI(name) != expectOnCLI {
+			t.Errorf("Expected cfg.OnCLI(%s)==%t, but instead returned %t", name, expectOnCLI, !expectOnCLI)
+		}
+	}
+
+	fakeFileOptions := SimpleSource(map[string]string{
+		"hidden": "set off cli",
+		"bool1":  "1",
+	})
+	cmd := simpleCommand()
+	cfg := ParseFakeCLI(t, cmd, "mycommand -s 'hello world' --skip-truthybool --hidden=\"somedefault\" -B arg1", fakeFileOptions)
+	assertOptionStatus(cfg, "visible", false, false, false)
+	assertOptionStatus(cfg, "hidden", false, true, true)
+	assertOptionStatus(cfg, "hasshort", true, true, true)
+	assertOptionStatus(cfg, "bool1", true, true, false)
+	assertOptionStatus(cfg, "bool2", true, true, true)
+	assertOptionStatus(cfg, "truthybool", true, true, true)
+	assertOptionStatus(cfg, "required", true, true, true)
+	assertOptionStatus(cfg, "optional", false, false, false)
 }
 
 func TestGetRaw(t *testing.T) {
@@ -37,7 +97,7 @@ func TestGetRaw(t *testing.T) {
 		"beginning": `"something" something`,
 		"end":       "something `something`",
 	}
-	cfg := getConfig(optionValues)
+	cfg := simpleConfig(optionValues)
 
 	for name, expected := range optionValues {
 		if found := cfg.GetRaw(name); found != expected {
@@ -51,7 +111,7 @@ func TestGet(t *testing.T) {
 		optionValues := map[string]string{
 			name: value,
 		}
-		cfg := getConfig(optionValues)
+		cfg := simpleConfig(optionValues)
 		if actual := cfg.Get(name); actual != value {
 			t.Errorf("Expected Get(%s) to return %s, instead found %s", name, value, actual)
 		}
@@ -60,7 +120,7 @@ func TestGet(t *testing.T) {
 		optionValues := map[string]string{
 			name: value,
 		}
-		cfg := getConfig(optionValues)
+		cfg := simpleConfig(optionValues)
 		if actual := cfg.Get(name); actual != expected {
 			t.Errorf("Expected Get(%s) to return %s, instead found %s", name, expected, actual)
 		}
@@ -102,7 +162,7 @@ func TestGetSlice(t *testing.T) {
 		if expected == nil {
 			expected = make([]string, 0)
 		}
-		cfg := getConfig(map[string]string{"option-name": optionValue})
+		cfg := simpleConfig(map[string]string{"option-name": optionValue})
 		if actual := cfg.GetSlice("option-name", delimiter, unwrapFull); !reflect.DeepEqual(actual, expected) {
 			t.Errorf("Expected GetSlice(\"...\", '%c', %t) on %#v to return %#v, instead found %#v", delimiter, unwrapFull, optionValue, expected, actual)
 		}
@@ -133,7 +193,7 @@ func TestGetEnum(t *testing.T) {
 		"caps":  "SHOUTING",
 		"blank": "",
 	}
-	cfg := getConfig(optionValues)
+	cfg := simpleConfig(optionValues)
 
 	value, err := cfg.GetEnum("foo", "baw", "bar", "bat")
 	if value != "bar" || err != nil {
@@ -170,7 +230,7 @@ func TestGetBytes(t *testing.T) {
 		"tera-fail":     "55t",
 		"blank-ok":      "",
 	}
-	cfg := getConfig(optionValues)
+	cfg := simpleConfig(optionValues)
 
 	assertBytes := func(name string, expect uint64) {
 		value, err := cfg.GetBytes(name)
@@ -207,7 +267,7 @@ func TestGetRegexp(t *testing.T) {
 		"invalid": "+++",
 		"blank":   "",
 	}
-	cfg := getConfig(optionValues)
+	cfg := simpleConfig(optionValues)
 
 	re, err := cfg.GetRegexp("valid")
 	if err != nil {
