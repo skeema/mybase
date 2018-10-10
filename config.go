@@ -223,12 +223,7 @@ func (cfg *Config) FindOption(name string) *Option {
 		}
 		return nil
 	}
-
-	rootCommand := cfg.CLI.Command
-	for rootCommand.ParentCommand != nil {
-		rootCommand = rootCommand.ParentCommand
-	}
-	return helper(rootCommand)
+	return helper(cfg.CLI.Command.Root())
 }
 
 // GetRaw returns an option's value as-is as a string. If the option is not set,
