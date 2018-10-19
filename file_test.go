@@ -18,6 +18,7 @@ func getParsedFile(cfg *Config, ignoreUnknownOptions bool, contents string) (*Fi
 
 func TestParse(t *testing.T) {
 	assertFileParsed := func(f *File, err error, expectedSections ...string) {
+		t.Helper()
 		if err != nil {
 			t.Errorf("Expected file to parse without error, but instead found %s", err)
 		} else if len(f.sections) != len(expectedSections) {
@@ -31,6 +32,7 @@ func TestParse(t *testing.T) {
 		}
 	}
 	assertFileValue := func(f *File, sectionName, optionName, value string) {
+		t.Helper()
 		if section := f.sectionIndex[sectionName]; section == nil {
 			t.Errorf("Expected section \"%s\" to exist, but it does not", sectionName)
 		} else if actualValue, ok := section.Values[optionName]; !ok || actualValue != value {
@@ -76,6 +78,12 @@ func TestParse(t *testing.T) {
 			t.Errorf("Expected file parsing to generate error, but it did not. Contents:\n%s\n\n", f.contents)
 		}
 	}
+
+	// Test Config.LooseFileOptions
+	cfg.LooseFileOptions = true
+	f, err = getParsedFile(cfg, false, "[one]\nerrors-dont-matter=1\nmystring=hello")
+	assertFileParsed(f, err, "", "one")
+	assertFileValue(f, "one", "mystring", "hello")
 }
 
 func TestParseLine(t *testing.T) {

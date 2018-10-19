@@ -21,12 +21,13 @@ type OptionValuer interface {
 // plus zero or more option files, or any other source implementing the
 // OptionValuer interface.
 type Config struct {
-	CLI            *CommandLine            // Parsed command-line
-	IsTest         bool                    // true if Config generated from test logic, false otherwise
-	sources        []OptionValuer          // Sources of option values, excluding CLI or Command; higher indexes override lower indexes
-	unifiedValues  map[string]string       // Precomputed cache of option name => value
-	unifiedSources map[string]OptionValuer // Precomputed cache of option name => which source supplied it
-	dirty          bool                    // true if source list has changed, meaning next access needs to recompute caches
+	CLI              *CommandLine            // Parsed command-line
+	IsTest           bool                    // true if Config generated from test logic, false otherwise
+	LooseFileOptions bool                    // enable to ignore unknown options in all Files
+	sources          []OptionValuer          // Sources of option values, excluding CLI or Command; higher indexes override lower indexes
+	unifiedValues    map[string]string       // Precomputed cache of option name => value
+	unifiedSources   map[string]OptionValuer // Precomputed cache of option name => which source supplied it
+	dirty            bool                    // true if source list has changed, meaning next access needs to recompute caches
 }
 
 // NewConfig creates a Config object, given a CommandLine and any arbitrary

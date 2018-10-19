@@ -172,7 +172,7 @@ func (f *File) Parse(cfg *Config) error {
 		case lineTypeKeyOnly, lineTypeKeyValue:
 			opt := cfg.FindOption(parsedLine.key)
 			if opt == nil {
-				if parsedLine.isLoose || f.IgnoreUnknownOptions {
+				if parsedLine.isLoose || f.IgnoreUnknownOptions || cfg.LooseFileOptions {
 					continue
 				} else {
 					return OptionNotDefinedError{parsedLine.key, fmt.Sprintf("%s line %d", f.Path(), lineNumber)}
