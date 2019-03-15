@@ -4,10 +4,11 @@ import (
 	"testing"
 )
 
-func getParsedFile(cfg *Config, ignoreUnknownOptions bool, contents string) (*File, error) {
+func getParsedFile(cfg *Config, ignoreUnknownOptions bool, contents string, ignoredOpts ...string) (*File, error) {
 	var err error
 	file := NewFile("/tmp/fake.cnf")
 	file.IgnoreUnknownOptions = ignoreUnknownOptions
+	file.IgnoreOptions(ignoredOpts...)
 	if len(contents) > 0 {
 		file.contents = contents
 		file.read = true
@@ -65,6 +66,8 @@ func TestParse(t *testing.T) {
 	assertFileValue(f, "", "mystring", "`ok`")
 
 	f, err = getParsedFile(cfg, true, "errors-dont-matter=1")
+	assertFileParsed(f, err, "")
+	f, err = getParsedFile(cfg, false, "errors-dont-matter=1", "errors-dont-matter")
 	assertFileParsed(f, err, "")
 
 	badContents := []string{
