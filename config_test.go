@@ -84,6 +84,56 @@ func TestOptionStatus(t *testing.T) {
 	assertOptionStatus(cfg, "truthybool", true, true, true)
 	assertOptionStatus(cfg, "required", true, true, true)
 	assertOptionStatus(cfg, "optional", false, false, false)
+
+	// Among other things, confirm behavior of string option set to empty string
+	cfg = ParseFakeCLI(t, cmd, "mycommand --skip-bool1 --hidden=\"\" --bool2 arg1", fakeFileOptions)
+	assertOptionStatus(cfg, "bool1", false, true, true)
+	assertOptionStatus(cfg, "hidden", true, true, true)
+	assertOptionStatus(cfg, "bool2", true, true, true)
+	if cfg.GetRaw("hidden") != "''" || cfg.Get("hidden") != "" {
+		t.Errorf("Unexpected behavior of stringy options with empty value: GetRaw=%q, Get=%q", cfg.GetRaw("hidden"), cfg.Get("hidden"))
+	}
+}
+
+func TestSuppliedWithValue(t *testing.T) {
+	assertSuppliedWithValue := func(cfg *Config, name string, expected bool) {
+		t.Helper()
+		if cfg.SuppliedWithValue(name) != expected {
+			t.Errorf("Unexpected return from SuppliedWithValue(%q): expected %t, found %t", name, expected, !expected)
+		}
+	}
+	assertPanic := func(cfg *Config, name string) {
+		t.Helper()
+		defer func() {
+			if recover() == nil {
+				t.Errorf("Expected SuppliedWithValue(%q) to panic, but it did not", name)
+			}
+		}()
+		cfg.SuppliedWithValue(name)
+	}
+
+	cmd := simpleCommand()
+	cmd.AddOption(StringOption("optional1", 'y', "", "dummy description").ValueOptional())
+	cmd.AddOption(StringOption("optional2", 'z', "default", "dummy description").ValueOptional())
+
+	cfg := ParseFakeCLI(t, cmd, "mycommand -s 'hello world' --skip-truthybool arg1")
+	assertPanic(cfg, "doesntexist") // panics if option does not exist
+	assertPanic(cfg, "truthybool")  // panics if option isn't string typed
+	assertPanic(cfg, "hasshort")    // panics if option value isn't optional
+	assertSuppliedWithValue(cfg, "optional1", false)
+	assertSuppliedWithValue(cfg, "optional2", false)
+
+	cfg = ParseFakeCLI(t, cmd, "mycommand -y -z arg1")
+	assertSuppliedWithValue(cfg, "optional1", false)
+	assertSuppliedWithValue(cfg, "optional2", false)
+
+	cfg = ParseFakeCLI(t, cmd, "mycommand -yhello --optional2 arg1")
+	assertSuppliedWithValue(cfg, "optional1", true)
+	assertSuppliedWithValue(cfg, "optional2", false)
+
+	cfg = ParseFakeCLI(t, cmd, "mycommand --optional2= --optional1='' arg1")
+	assertSuppliedWithValue(cfg, "optional1", true)
+	assertSuppliedWithValue(cfg, "optional2", true)
 }
 
 func TestGetRaw(t *testing.T) {
@@ -145,6 +195,7 @@ func TestGet(t *testing.T) {
 	quotedValues := [][3]string{
 		{"single", "'quoted'", "quoted"},
 		{"double", `"quoted"`, "quoted"},
+		{"empty", "''", ""},
 		{"backtick", "`quoted`", "quoted"},
 		{"uni-middle", `"yay ☃ snowpeople"`, `yay ☃ snowpeople`},
 		{"esc-quote", `'something\'s escaped'`, `something's escaped`},

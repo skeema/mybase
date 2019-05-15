@@ -54,6 +54,10 @@ func TestParse(t *testing.T) {
 	assertFileValue(f, "", "mystring", "hello")
 	assertFileValue(f, "", "mybool", "1")
 
+	f, err = getParsedFile(cfg, false, "mystring = \nskip-mybool")
+	assertFileParsed(f, err, "")
+	assertFileValue(f, "", "mystring", "''")
+
 	f, err = getParsedFile(cfg, false, "skip-mybool\n mystring =  whatever \n\n\t[one] #yay\nmybool=1\n[two]\nloose-mystring=overridden\n\n\n")
 	assertFileParsed(f, err, "", "one", "two")
 	assertFileValue(f, "", "mystring", "whatever")
