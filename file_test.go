@@ -64,6 +64,8 @@ func TestParse(t *testing.T) {
 	assertFileValue(f, "", "mybool", "")
 	assertFileValue(f, "one", "mybool", "1")
 	assertFileValue(f, "two", "mystring", "overridden")
+	AssertFileSetsOptions(t, f, "mybool", "mystring")
+	AssertFileMissingOptions(t, f, "yay")
 
 	f, err = getParsedFile(cfg, false, "loose-doesntexist=foo\n\n\nmystring=`ok`  ")
 	assertFileParsed(f, err, "")
