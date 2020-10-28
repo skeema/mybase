@@ -6,56 +6,6 @@ import (
 	"testing"
 )
 
-// simpleConfig returns a stub config based on a single map of key->value string
-// pairs. All keys in the map will automatically be considered valid options.
-func simpleConfig(values map[string]string) *Config {
-	cmd := NewCommand("test", "1.0", "this is for testing", nil)
-	for key := range values {
-		cmd.AddOption(StringOption(key, 0, "", key))
-	}
-	cli := &CommandLine{
-		Command: cmd,
-	}
-	return NewConfig(cli, SimpleSource(values))
-}
-
-// simpleCommand returns a standalone command for testing purposes
-func simpleCommand() *Command {
-	cmd := NewCommand("mycommand", "summary", "description", nil)
-	cmd.AddOption(StringOption("visible", 0, "", "dummy description"))
-	cmd.AddOption(StringOption("hidden", 0, "somedefault", "dummy description").Hidden())
-	cmd.AddOption(StringOption("hasshort", 's', "", "dummy description"))
-	cmd.AddOption(BoolOption("bool1", 'b', false, "dummy description"))
-	cmd.AddOption(BoolOption("bool2", 'B', false, "dummy description"))
-	cmd.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
-	cmd.AddArg("required", "", true)
-	cmd.AddArg("optional", "hello", false)
-	return cmd
-}
-
-// simpleCommandSuite returns a command suite for testing purposes
-func simpleCommandSuite() *Command {
-	suite := NewCommandSuite("mycommand", "summary", "description")
-	suite.AddOption(StringOption("visible", 0, "", "dummy description"))
-	suite.AddOption(StringOption("hidden", 0, "somedefault", "dummy description").Hidden())
-	suite.AddOption(StringOption("hasshort", 's', "", "dummy description"))
-	suite.AddOption(BoolOption("bool1", 'b', false, "dummy description"))
-	suite.AddOption(BoolOption("bool2", 'B', false, "dummy description"))
-	suite.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
-
-	cmd1 := NewCommand("one", "summary", "description", nil)
-	cmd1.AddOption(StringOption("visible", 0, "newdefault", "dummy description")) // changed default
-	cmd1.AddOption(StringOption("hidden", 0, "somedefault", "dummy description")) // no longer hidden
-	cmd1.AddOption(StringOption("newopt", 'n', "", "dummy description"))
-	suite.AddSubCommand(cmd1)
-
-	cmd2 := NewCommand("two", "summary", "description", nil)
-	cmd2.AddArg("optional", "hello", false)
-	suite.AddSubCommand(cmd2)
-
-	return suite
-}
-
 func TestOptionStatus(t *testing.T) {
 	assertOptionStatus := func(cfg *Config, name string, expectChanged, expectSupplied, expectOnCLI bool) {
 		t.Helper()
@@ -337,4 +287,17 @@ func TestGetRegexp(t *testing.T) {
 	if re != nil || err != nil {
 		t.Errorf("Expected blank regexp to return nil, nil; instead returned %v, %v", re, err)
 	}
+}
+
+// simpleConfig returns a stub config based on a single map of key->value string
+// pairs. All keys in the map will automatically be considered valid options.
+func simpleConfig(values map[string]string) *Config {
+	cmd := NewCommand("test", "1.0", "this is for testing", nil)
+	for key := range values {
+		cmd.AddOption(StringOption(key, 0, "", key))
+	}
+	cli := &CommandLine{
+		Command: cmd,
+	}
+	return NewConfig(cli, SimpleSource(values))
 }
