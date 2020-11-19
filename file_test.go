@@ -1,6 +1,8 @@
 package mybase
 
 import (
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
@@ -15,6 +17,62 @@ func getParsedFile(cfg *Config, ignoreUnknownOptions bool, contents string, igno
 		err = file.Parse(cfg)
 	}
 	return file, err
+}
+
+func TestFileReadWrite(t *testing.T) {
+	f := NewFile(os.TempDir(), "mybasetest.cnf")
+	if f.Exists() {
+		t.Fatalf("File at path %s unexpectedly already exists", f.Path())
+	}
+	if err := f.Read(); err == nil {
+		t.Fatal("Expected File.Read() to fail on nonexistent file, but err is nil")
+	}
+
+	contents := "foo=bar\n\n[mysection]\nvalid=1\n"
+	err := ioutil.WriteFile(f.Path(), []byte(contents), 0777)
+	if err != nil {
+		t.Fatalf("Unable to directly write %s to set up test: %s", f.Path(), err)
+	}
+	defer os.Remove(f.Path())
+
+	if !f.Exists() {
+		t.Error("Expected File.Exists() to return true, but it did not")
+	}
+	if err := f.Read(); err != nil {
+		t.Fatalf("Unexpected error from File.Read(): %v", err)
+	}
+	if f.contents != contents {
+		t.Errorf("Unexpected f.contents: %q", f.contents)
+	}
+	if !f.read {
+		t.Error("Expected f.read to be true after calling Read(), but it is false")
+	}
+
+	cmd := NewCommand("test", "1.0", "this is for testing", nil)
+	cmd.AddOption(StringOption("foo", 0, "", ""))
+	cmd.AddOption(BoolOption("valid", 0, false, ""))
+	cli := &CommandLine{
+		Command: cmd,
+	}
+	cfg := NewConfig(cli)
+	if err := f.Parse(cfg); err != nil {
+		t.Fatalf("Unexpected error from Parse(): %v", err)
+	}
+
+	// Non-overwrite Write should fail, but overwrite-friendly should be fine
+	if err := f.Write(false); err == nil {
+		t.Error("Expected Write(false) to fail, but it did not")
+	}
+	if err := f.Write(true); err != nil {
+		t.Errorf("Unexpected error from Write(true): %v", err)
+	}
+	newContentsBytes, err := ioutil.ReadFile(f.Path())
+	if err != nil {
+		t.Fatalf("Unexpected error directly re-reading file: %v", err)
+	}
+	if string(newContentsBytes) != contents {
+		t.Errorf("Unexpected file contents: %q", string(newContentsBytes))
+	}
 }
 
 func TestParse(t *testing.T) {
