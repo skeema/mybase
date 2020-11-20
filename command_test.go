@@ -1,6 +1,8 @@
 package mybase
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -66,6 +68,38 @@ func TestCommandOptionGroups(t *testing.T) {
 	}
 }
 
+func TestWebDocText(t *testing.T) {
+	single := simpleCommand()
+	actual := single.WebDocText()
+	if strings.Contains(actual, "command suite") {
+		t.Errorf("Unexpected reference to command suite in non-suite web doc text: %q", actual)
+	}
+	if !strings.HasSuffix(actual, single.WebDocURL) {
+		t.Errorf("Expected web doc link to be %q, but full text did not have that suffix: %q", single.WebDocURL, actual)
+	}
+	single.WebDocURL = ""
+	if actual := single.WebDocText(); actual != "" {
+		t.Errorf("Expected single command with no web doc to return empty string; instead found %q", actual)
+	}
+
+	suite := simpleCommandSuite()
+	actual = suite.WebDocText()
+	if !strings.Contains(actual, "command suite") {
+		t.Errorf("Unexpectedly lacking reference to command suite in web doc text: %q", actual)
+	}
+	if !strings.HasSuffix(actual, suite.WebDocURL) {
+		t.Errorf("Expected web doc link to be %q, but full text did not have that suffix: %q", suite.WebDocURL, actual)
+	}
+	subOne := suite.SubCommands["one"]
+	actual = subOne.WebDocText()
+	if strings.Contains(actual, "command suite") {
+		t.Errorf("Unexpected reference to command suite in non-suite web doc text: %q", actual)
+	}
+	if !strings.HasSuffix(actual, fmt.Sprintf("%s/%s", suite.WebDocURL, subOne.Name)) {
+		t.Errorf("Expected web doc link to be %q, but full text did not have that suffix: %q", subOne.WebDocURL, actual)
+	}
+}
+
 // simpleCommand returns a standalone command for testing purposes
 func simpleCommand() *Command {
 	cmd := NewCommand("mycommand", "summary", "description", nil)
@@ -77,6 +111,7 @@ func simpleCommand() *Command {
 	cmd.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
 	cmd.AddArg("required", "", true)
 	cmd.AddArg("optional", "hello", false)
+	cmd.WebDocURL = "https://www.indexhint.com/test/cmddoc"
 	return cmd
 }
 
@@ -89,6 +124,7 @@ func simpleCommandSuite() *Command {
 	suite.AddOption(BoolOption("bool1", 'b', false, "dummy description"))
 	suite.AddOption(BoolOption("bool2", 'B', false, "dummy description"))
 	suite.AddOption(BoolOption("truthybool", 0, true, "dummy description"))
+	suite.WebDocURL = "https://www.indexhint.com/test/suitedoc"
 
 	cmd1 := NewCommand("one", "summary", "description", nil)
 	cmd1.AddOption(StringOption("visible", 0, "newdefault", "dummy description")) // changed default
