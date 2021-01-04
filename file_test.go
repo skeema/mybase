@@ -28,7 +28,7 @@ func TestFileReadWrite(t *testing.T) {
 		t.Fatal("Expected File.Read() to fail on nonexistent file, but err is nil")
 	}
 
-	contents := "foo=bar\n\n[mysection]\nvalid=1\n"
+	contents := "foo=bar\n\n[mysection]\nskip-safeties\nsimple-bool\n"
 	err := ioutil.WriteFile(f.Path(), []byte(contents), 0777)
 	if err != nil {
 		t.Fatalf("Unable to directly write %s to set up test: %s", f.Path(), err)
@@ -50,7 +50,8 @@ func TestFileReadWrite(t *testing.T) {
 
 	cmd := NewCommand("test", "1.0", "this is for testing", nil)
 	cmd.AddOption(StringOption("foo", 0, "", ""))
-	cmd.AddOption(BoolOption("valid", 0, false, ""))
+	cmd.AddOption(BoolOption("safeties", 0, true, ""))
+	cmd.AddOption(BoolOption("simple-bool", 0, false, ""))
 	cli := &CommandLine{
 		Command: cmd,
 	}
@@ -151,6 +152,41 @@ func TestParse(t *testing.T) {
 	f, err = getParsedFile(cfg, false, "[one]\nerrors-dont-matter=1\nmystring=hello")
 	assertFileParsed(f, err, "", "one")
 	assertFileValue(f, "one", "mystring", "hello")
+}
+
+func TestFileSameContents(t *testing.T) {
+	cmd := NewCommand("test", "1.0", "this is for testing", nil)
+	cmd.AddOption(StringOption("mystring", 0, "", ""))
+	cmd.AddOption(BoolOption("mybool", 0, false, ""))
+	cli := &CommandLine{
+		Command: cmd,
+	}
+	cfg := NewConfig(cli)
+
+	f1, err1 := getParsedFile(cfg, false, "skip-mybool\n mystring =  whatever \n\n\t[one] #yay\nmybool=1\n[two]\nloose-mystring=overridden\n\n\n")
+	f2, err2 := getParsedFile(cfg, false, "mystring = whatever\nskip-mybool\n[one]\nmybool=1\n[two]\nmystring=overridden\n")
+	if err1 != nil || err2 != nil {
+		t.Fatalf("Unexpected errors in getting parsed test files: %v / %v", err1, err2)
+	}
+	if !f1.SameContents(f2) {
+		t.Error("Expected f1 and f2 to have the same contents, but they did not")
+	}
+
+	f3, err3 := getParsedFile(cfg, false, "skip-mybool\n[one]\nmybool=1\n[two]\nmystring=overridden\n")
+	if err3 != nil {
+		t.Fatalf("Unexpected error in getting parsed test file: %v", err3)
+	}
+	if f1.SameContents(f3) {
+		t.Error("Expected f1 and f3 to have different contents, but SameContents returned true")
+	}
+	f3.SetOptionValue("", "mystring", "some other value")
+	if f1.SameContents(f3) {
+		t.Error("Expected f1 and f3 to have different contents, but SameContents returned true")
+	}
+	f3.SetOptionValue("", "mystring", "whatever")
+	if !f1.SameContents(f3) {
+		t.Error("Expected f1 and f3 to now have the same contents, but they did not")
+	}
 }
 
 func TestParseLine(t *testing.T) {
