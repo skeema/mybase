@@ -126,6 +126,11 @@ func TestParse(t *testing.T) {
 	AssertFileSetsOptions(t, f, "mybool", "mystring")
 	AssertFileMissingOptions(t, f, "yay")
 
+	// Test with utf8 BOM in front of contents
+	f, err = getParsedFile(cfg, false, "\uFEFFskip-mybool\n mystring =  whatever \n\n\t[one] #yay\nmybool=1\n[two]\nloose-mystring=overridden\n\n\n")
+	assertFileParsed(f, err, "", "one", "two")
+	assertFileValue(f, "", "mystring", "whatever")
+
 	f, err = getParsedFile(cfg, false, "loose-doesntexist=foo\n\n\nmystring=`ok`  ")
 	assertFileParsed(f, err, "")
 	assertFileValue(f, "", "mystring", "`ok`")
