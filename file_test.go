@@ -28,7 +28,7 @@ func TestFileReadWrite(t *testing.T) {
 		t.Fatal("Expected File.Read() to fail on nonexistent file, but err is nil")
 	}
 
-	contents := "foo=bar\n\n[mysection]\nskip-safeties\nsimple-bool\n"
+	contents := "foo=bar\noptional-string\n\n[mysection]\nskip-foo\nskip-safeties\nsimple-bool\n"
 	err := ioutil.WriteFile(f.Path(), []byte(contents), 0777)
 	if err != nil {
 		t.Fatalf("Unable to directly write %s to set up test: %s", f.Path(), err)
@@ -50,6 +50,7 @@ func TestFileReadWrite(t *testing.T) {
 
 	cmd := NewCommand("test", "1.0", "this is for testing", nil)
 	cmd.AddOption(StringOption("foo", 0, "", ""))
+	cmd.AddOption(StringOption("optional-string", 0, "", "").ValueOptional())
 	cmd.AddOption(BoolOption("safeties", 0, true, ""))
 	cmd.AddOption(BoolOption("simple-bool", 0, false, ""))
 	cli := &CommandLine{
