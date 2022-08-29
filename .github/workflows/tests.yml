@@ -1,7 +1,7 @@
 name: Tests
 on: [push, pull_request]
 env:
-  GOVERSION: "1.16"
+  GOVERSION: "1.18"
 jobs:
   test:
     name: Check code quality and run tests
@@ -20,7 +20,7 @@ jobs:
         run: test -z "$(gofmt -s -d *.go 2>&1)"
 
       - name: Run golint
-        run: go get -u golang.org/x/lint/golint && golint -set_exit_status
+        run: go install golang.org/x/lint/golint@latest && golint -set_exit_status
         
       - name: Run go vet
         run: go vet
@@ -31,4 +31,4 @@ jobs:
       - name: Report coverage
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: go get github.com/mattn/goveralls && goveralls -coverprofile=coverage.out -service=github
+        run: go install github.com/mattn/goveralls@latest && goveralls -coverprofile=coverage.out -service=github
