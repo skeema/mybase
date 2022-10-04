@@ -86,6 +86,58 @@ func TestSuppliedWithValue(t *testing.T) {
 	assertSuppliedWithValue(cfg, "optional2", true)
 }
 
+func TestRuntimeOverride(t *testing.T) {
+	assertOptionValue := func(c *Config, name, expected string) {
+		t.Helper()
+		if actual := c.Get(name); actual != expected {
+			t.Errorf("Expected config.Get(%q) = %q, instead found %q", name, expected, actual)
+		}
+	}
+	assertOnCLI := func(c *Config, name string, expected bool) {
+		t.Helper()
+		if actual := c.OnCLI(name); actual != expected {
+			t.Errorf("Expected config.OnCLI(%q) = %t, instead found %t", name, expected, actual)
+		}
+	}
+
+	cmd := simpleCommand()
+	cmd.AddOption(StringOption("optional1", 'y', "", "dummy description").ValueOptional())
+	cmd.AddOption(StringOption("optional2", 'z', "default", "dummy description").ValueOptional())
+	cfg := ParseFakeCLI(t, cmd, "mycommand -s 'hello world' --skip-truthybool arg1")
+
+	// Confirm results prior to overrides
+	assertOptionValue(cfg, "optional1", "")
+	assertOptionValue(cfg, "optional2", "default")
+	assertOptionValue(cfg, "hasshort", "hello world")
+	assertOnCLI(cfg, "hasshort", true)
+	assertOnCLI(cfg, "optional2", false)
+
+	// Confirm behavior of overrides
+	cfg.SetRuntimeOverride("hasshort", "overridden1")
+	cfg.SetRuntimeOverride("optional2", "overridden2")
+	assertOptionValue(cfg, "hasshort", "overridden1")
+	assertOptionValue(cfg, "optional2", "overridden2")
+	assertOnCLI(cfg, "hasshort", false)
+	assertOnCLI(cfg, "optional2", false)
+
+	// Confirm behaviors of clone, including use of a deep copy of the overrides
+	// map, rather than a shared reference
+	clone := cfg.Clone()
+	assertOptionValue(clone, "optional1", "")
+	assertOptionValue(clone, "hasshort", "overridden1")
+	assertOptionValue(clone, "optional2", "overridden2")
+	assertOnCLI(clone, "hasshort", false)
+	assertOnCLI(clone, "optional2", false)
+	assertOnCLI(clone, "truthybool", true)
+
+	cfg.SetRuntimeOverride("optional2", "newval")
+	assertOptionValue(cfg, "optional2", "newval")
+	assertOptionValue(clone, "optional2", "overridden2")
+	clone.SetRuntimeOverride("hasshort", "alsonew")
+	assertOptionValue(cfg, "hasshort", "overridden1")
+	assertOptionValue(clone, "hasshort", "alsonew")
+}
+
 func TestGetRaw(t *testing.T) {
 	optionValues := map[string]string{
 		"basic":     "foo",
