@@ -179,16 +179,17 @@ func TestGet(t *testing.T) {
 	}
 
 	basicValues := map[string]string{
-		"basic":      "foo",
-		"nothing":    "",
-		"uni-start":  "☃snowperson",
-		"uni-end":    "snowperson☃",
-		"uni-both":   "☃snowperson☃",
-		"middle":     "something 'something' something",
-		"beginning":  `"something" something`,
-		"end":        "something `something`",
-		"no-escape1": `something\'s still backslashed`,
-		"no-escape2": `'even this\'s still backslashed', they said`,
+		"basic":            "foo",
+		"nothing":          "",
+		"uni-start":        "☃snowperson",
+		"uni-end":          "snowperson☃",
+		"uni-both":         "☃snowperson☃",
+		"middle":           "something 'something' something",
+		"beginning":        `"something" something`,
+		"end":              "something `something`",
+		"no-escape1":       `something\'s still backslashed`,
+		"no-escape2":       `'even this\'s still backslashed', they said`,
+		"not-fully-quoted": `"hello world", I say, "more quoted text but not fully quote wrapped"`,
 	}
 	for name, value := range basicValues {
 		assertBasicGet(name, value)
@@ -207,6 +208,44 @@ func TestGet(t *testing.T) {
 	}
 	for _, tuple := range quotedValues {
 		assertQuotedGet(tuple[0], tuple[1], tuple[2])
+	}
+}
+
+func TestGetAllowEnvVar(t *testing.T) {
+	t.Setenv("SOME_VAR", "some value")
+	cfg := simpleConfig(map[string]string{
+		"int":                       "1",
+		"blank":                     "",
+		"working-env":               "$SOME_VAR",
+		"non-env":                   "SOME_VAR",
+		"dollar-literal":            "$",
+		"unset-env-blank":           "$OTHER_VAR",
+		"quoted-working-env":        `"$SOME_VAR"`,
+		"singlequote-no-env":        "'$SOME_VAR'",
+		"backtick-no-env":           "`$SOME_VAR`",
+		"quoted-dollar-literal":     `"$"`,
+		"spaces-working-env":        "  $SOME_VAR\n",
+		"spaces-quoted-working-env": ` "$SOME_VAR"   `,
+	})
+
+	testCases := map[string]string{
+		"int":                       "1",
+		"blank":                     "",
+		"working-env":               "some value",
+		"non-env":                   "SOME_VAR",
+		"dollar-literal":            "$",
+		"unset-env-blank":           "",
+		"quoted-working-env":        "some value",
+		"singlequote-no-env":        "$SOME_VAR",
+		"backtick-no-env":           "$SOME_VAR",
+		"quoted-dollar-literal":     "$",
+		"spaces-working-env":        "some value",
+		"spaces-quoted-working-env": "some value",
+	}
+	for input, expected := range testCases {
+		if actual := cfg.GetAllowEnvVar(input); actual != expected {
+			t.Errorf("Expected cfg.Get(%q) to return %q, instead found %q", input, expected, actual)
+		}
 	}
 }
 
