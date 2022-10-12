@@ -373,8 +373,34 @@ func (cfg *Config) GetSlice(name string, delimiter rune, unwrapFullValue bool) [
 	} else {
 		value = cfg.GetRaw(name)
 	}
+	return splitValueIntoSlice(value, delimiter)
+}
 
-	tokens := make([]string, 0)
+// GetSliceAllowEnvVar works like a combination of GetAllowEnvVar and GetSlice:
+// if the configured value is of form $FOO, and the $FOO environment variable
+// stores a comma-separated list of values, the list will be split using the
+// supplied delimiter.
+// Options can either be set to literal lists (as per GetSlice) or to a single
+// env variable name (as per GetAllowEnvVar), but not a combination. In other
+// words, if an option value is set to "a,$FOO,b" then this will not expand
+// $FOO.
+// unwrapFullValue only applies to values which aren't set via env vars.
+func (cfg *Config) GetSliceAllowEnvVar(name string, delimiter rune, unwrapFullValue bool) []string {
+	raw := cfg.GetRaw(name)
+	unquoted, quote := trimQuotes(raw)
+	var value string
+	if len(unquoted) >= 2 && unquoted[0] == '$' && quote != '\'' && quote != '`' && !cfg.OnCLI(name) {
+		value = os.Getenv(unquoted[1:])
+	} else if unwrapFullValue {
+		value = unquoted
+	} else {
+		value = raw
+	}
+	return splitValueIntoSlice(value, delimiter)
+}
+
+func splitValueIntoSlice(value string, delimiter rune) []string {
+	tokens := []string{}
 	var startToken int
 	var inQuote rune
 	var escapeNext bool

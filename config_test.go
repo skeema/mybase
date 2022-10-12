@@ -251,6 +251,7 @@ func TestGetAllowEnvVar(t *testing.T) {
 
 func TestGetSlice(t *testing.T) {
 	assertGetSlice := func(optionValue string, delimiter rune, unwrapFull bool, expected ...string) {
+		t.Helper()
 		if expected == nil {
 			expected = make([]string, 0)
 		}
@@ -277,6 +278,36 @@ func TestGetSlice(t *testing.T) {
 	assertGetSlice("``", ',', true)
 	assertGetSlice(" `  `  ", ',', true)
 	assertGetSlice(" `  `  ", ' ', true)
+}
+
+func TestGetSliceAllowEnvVar(t *testing.T) {
+	assertGetSlice := func(viaEnv bool, optionValue string, unwrapFull bool, expected ...string) {
+		t.Helper()
+		if expected == nil {
+			expected = make([]string, 0)
+		}
+		var configVal string
+		if viaEnv {
+			configVal = "$FOO"
+			t.Setenv("FOO", optionValue)
+		} else {
+			configVal = optionValue
+		}
+		cfg := simpleConfig(map[string]string{"option-name": configVal})
+		if actual := cfg.GetSliceAllowEnvVar("option-name", ',', unwrapFull); !reflect.DeepEqual(actual, expected) {
+			t.Errorf("Expected GetSliceAllowEnv(\"...\", ',', %t) on %#v to return %#v, instead found %#v", unwrapFull, optionValue, expected, actual)
+		}
+	}
+
+	assertGetSlice(true, "hello", false, "hello")
+	assertGetSlice(true, `hello\`, false, `hello\`)
+	assertGetSlice(false, "hello", false, "hello")
+	assertGetSlice(false, `hello\`, false, `hello\`)
+	assertGetSlice(true, "hello, world", false, "hello", "world")
+	assertGetSlice(false, "hello, world", false, "hello", "world")
+	assertGetSlice(true, "'hello, world'", true, "hello, world")
+	assertGetSlice(false, "'hello, world'", false, "hello, world")
+	assertGetSlice(false, "'hello, world'", true, "hello", "world")
 }
 
 func TestGetEnum(t *testing.T) {
