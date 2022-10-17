@@ -195,16 +195,21 @@ func (cfg *Config) MarkDirty() {
 // were supplied on the CLI. The supplied name must correspond to a known option
 // in cfg, otherwise this method panics.
 func (cfg *Config) SetRuntimeOverride(name, value string) {
-	if _, ok := cfg.unifiedSources[name]; !ok {
+	var optionExists bool
+	if cfg.dirty {
+		optionExists = (cfg.FindOption(name) != nil)
+	} else {
+		_, optionExists = cfg.unifiedSources[name]
+	}
+	if !optionExists {
 		panic(fmt.Errorf("Assertion failed: option %s does not exist", name))
 	}
 
 	cfg.runtimeOverrides[name] = value
-
-	// Instead of marking the config as dirty and rebuilding it lazily, we can
-	// just set the value right away, since runtime overrides are always the
-	// highest priority source.
 	if !cfg.dirty {
+		// Instead of marking the config as dirty and rebuilding it lazily, we can
+		// just set the value right away, since runtime overrides are always the
+		// highest priority source.
 		cfg.unifiedValues[name] = value
 		cfg.unifiedSources[name] = cfg.runtimeOverrides
 	}

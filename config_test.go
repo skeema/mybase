@@ -99,6 +99,16 @@ func TestRuntimeOverride(t *testing.T) {
 			t.Errorf("Expected config.OnCLI(%q) = %t, instead found %t", name, expected, actual)
 		}
 	}
+	assertSetRuntimeOverridePanic := func(c *Config, name string) {
+		t.Helper()
+		defer func() {
+			t.Helper()
+			if iface := recover(); iface == nil {
+				t.Errorf("Expected SetRuntimeOverride(%q) to panic, but it did not", name)
+			}
+		}()
+		c.SetRuntimeOverride(name, "foo")
+	}
 
 	cmd := simpleCommand()
 	cmd.AddOption(StringOption("optional1", 'y', "", "dummy description").ValueOptional())
@@ -115,6 +125,7 @@ func TestRuntimeOverride(t *testing.T) {
 	// Confirm behavior of overrides
 	cfg.SetRuntimeOverride("hasshort", "overridden1")
 	cfg.SetRuntimeOverride("optional2", "overridden2")
+	assertSetRuntimeOverridePanic(cfg, "doesnt-exist")
 	assertOptionValue(cfg, "hasshort", "overridden1")
 	assertOptionValue(cfg, "optional2", "overridden2")
 	assertOnCLI(cfg, "hasshort", false)
@@ -129,12 +140,17 @@ func TestRuntimeOverride(t *testing.T) {
 	assertOnCLI(clone, "hasshort", false)
 	assertOnCLI(clone, "optional2", false)
 	assertOnCLI(clone, "truthybool", true)
-
 	cfg.SetRuntimeOverride("optional2", "newval")
 	assertOptionValue(cfg, "optional2", "newval")
 	assertOptionValue(clone, "optional2", "overridden2")
 	clone.SetRuntimeOverride("hasshort", "alsonew")
 	assertOptionValue(cfg, "hasshort", "overridden1")
+	assertOptionValue(clone, "hasshort", "alsonew")
+
+	// Confirm behavior on a dirty config
+	clone = cfg.Clone()
+	assertSetRuntimeOverridePanic(clone, "doesnt-exist2")
+	clone.SetRuntimeOverride("hasshort", "alsonew")
 	assertOptionValue(clone, "hasshort", "alsonew")
 }
 
