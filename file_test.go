@@ -245,3 +245,42 @@ func TestParseLine(t *testing.T) {
 	assertLineHasErr("foo=\"mismatched quotes`")
 	assertLineHasErr("foo=`unbalanced`quotes`")
 }
+
+func TestFileSectionValues(t *testing.T) {
+	cmd := NewCommand("test", "1.0", "this is for testing", nil)
+	cmd.AddOption(StringOption("mystring", 0, "", ""))
+	cmd.AddOption(BoolOption("mybool", 0, false, ""))
+	cli := &CommandLine{
+		Command: cmd,
+	}
+	cfg := NewConfig(cli)
+
+	f, err := getParsedFile(cfg, false, "skip-mybool\n mystring =  whatever \n\n\t[one]\nmybool=1\n[two]\nloose-mystring=overridden\n")
+	if err != nil {
+		t.Fatalf("Unexpected error return from getParsedFile: %v", err)
+	}
+
+	// Non-existent section should return empty (but non-nil) map
+	values := f.SectionValues("doesnt-exist")
+	if len(values) != 0 || values == nil {
+		t.Errorf("Unexpected return value from SectionValues: %v", values)
+	}
+
+	// Existing section should be returned with expected values
+	values = f.SectionValues("one")
+	if len(values) != 1 || values["mybool"] != "1" {
+		t.Errorf("Unexpected return value from SectionValues: %v", values)
+	}
+	values = f.SectionValues("two")
+	if len(values) != 1 || values["mystring"] != "overridden" {
+		t.Errorf("Unexpected return value from SectionValues: %v", values)
+	}
+
+	// The returned map should be a copy -- modifying it shouldn't impact the File
+	values["foo"] = "bar"
+	values["mystring"] = "different value"
+	origMap := f.sectionIndex["two"].Values
+	if len(origMap) != 1 || origMap["mystring"] != "overridden" {
+		t.Errorf("SectionValues unexpectedly did not return a copy of the map? Original map contents now %v", origMap)
+	}
+}
