@@ -1,6 +1,9 @@
 package mybase
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -424,6 +427,61 @@ func TestGetRegexp(t *testing.T) {
 	re, err = cfg.GetRegexp("blank")
 	if re != nil || err != nil {
 		t.Errorf("Expected blank regexp to return nil, nil; instead returned %v, %v", re, err)
+	}
+}
+
+func TestGetAbsPath(t *testing.T) {
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Unexpected error getting working directory: %v", err)
+	}
+	defaultAbs := fmt.Sprintf("%s%cfoobar", filepath.VolumeName(wd), os.PathSeparator)
+	cmd := NewCommand("mycommand", "summary", "description", nil)
+	cmd.AddOption(StringOption("file1", 'x', "", "dummy description"))
+	cmd.AddOption(StringOption("file2", 'y', "default", "dummy description"))
+	cmd.AddOption(StringOption("file3", 'z', defaultAbs, "dummy description"))
+	cfg := ParseFakeCLI(t, cmd, "mycommand")
+
+	// Test cases for default values
+	cases := map[string]string{
+		"file1": "",                           // Option with blank default --> return empty string
+		"file2": filepath.Join(wd, "default"), // Option with relative default --> base off of wd
+		"file3": defaultAbs,                   // Option with absolute default --> return as-is
+	}
+	for optionName, expected := range cases {
+		if actual, err := cfg.GetAbsPath(optionName); actual != expected {
+			t.Errorf("Expected GetAbsPath(%q) to return %q, instead got %q with err=%v", optionName, expected, actual, err)
+		}
+	}
+
+	// Test cases for command-line values
+	cfg = ParseFakeCLI(t, cmd, "mycommand --file1=foo/bar --file2="+strings.ReplaceAll(defaultAbs, `\`, `\\`))
+	cases = map[string]string{
+		"file1": filepath.Join(wd, "foo/bar"),
+		"file2": defaultAbs,
+	}
+	for optionName, expected := range cases {
+		if actual, err := cfg.GetAbsPath(optionName); actual != expected {
+			t.Errorf("Expected GetAbsPath(%q) to return %q, instead got %q with err=%v", optionName, expected, actual, err)
+		}
+	}
+
+	// Test cases for relative to option file
+	cfg = ParseFakeCLI(t, cmd, "mycommand")
+	f, err := getParsedFile(cfg, false, "file1="+defaultAbs+"\nfile2=aaa/bbb\n")
+	if err != nil {
+		t.Fatalf("Unexpected error getting fake parsed file: %v", err)
+	}
+	f.Dir = fmt.Sprintf("%s%ctmp", filepath.VolumeName(wd), os.PathSeparator)
+	cfg.AddSource(f)
+	cases = map[string]string{
+		"file1": defaultAbs,
+		"file2": filepath.Join(f.Dir, "aaa", "bbb"),
+	}
+	for optionName, expected := range cases {
+		if actual, err := cfg.GetAbsPath(optionName); actual != expected {
+			t.Errorf("Expected GetAbsPath(%q) to return %q, instead got %q with err=%v", optionName, expected, actual, err)
+		}
 	}
 }
 
