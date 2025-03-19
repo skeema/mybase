@@ -34,5 +34,5 @@ jobs:
       - name: Report coverage
         env:
           COVERALLS_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: go install github.com/mattn/goveralls@latest && goveralls -coverprofile=coverage.out -service=github
+        run: go install github.com/mattn/goveralls@v0.0.12 && goveralls -coverprofile=coverage.out -service=github
         continue-on-error: true
