@@ -390,6 +390,24 @@ func (f *File) IgnoreOptions(names ...string) {
 	}
 }
 
+// DeprecationWarnings returns a slice of warning messages for usage of
+// deprecated options in any section of the file. This satisfies the
+// DeprecationWarner interface.
+func (f *File) DeprecationWarnings() []string {
+	if !f.parsed {
+		panic(fmt.Errorf("Call to DeprecationWarnings() on unparsed file %s", f.Path()))
+	}
+	var warnings []string
+	for _, section := range f.sections {
+		for name, opt := range section.opts {
+			if opt.Deprecated() {
+				warnings = append(warnings, f.Path()+": Option "+name+" is deprecated. "+opt.deprecationDetails)
+			}
+		}
+	}
+	return warnings
+}
+
 func (f *File) getOrCreateSection(name string) *Section {
 	if s, exists := f.sectionIndex[name]; exists {
 		return s

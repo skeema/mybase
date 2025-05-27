@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -45,6 +46,57 @@ func TestOptionStatus(t *testing.T) {
 	assertOptionStatus(cfg, "bool2", true, true, true)
 	if cfg.GetRaw("hidden") != "''" || cfg.Get("hidden") != "" {
 		t.Errorf("Unexpected behavior of stringy options with empty value: GetRaw=%q, Get=%q", cfg.GetRaw("hidden"), cfg.Get("hidden"))
+	}
+}
+
+func TestDeprecationWarnings(t *testing.T) {
+	cmd := NewCommand("mycommand", "summary", "description", nil)
+	cmd.AddOption(StringOption("name", 'n', "", "dummy description"))
+	cmd.AddOption(StringOption("price", 'p', "", "dummy description").MarkDeprecated("details1"))
+	cmd.AddOption(StringOption("category", 'c', "default", "dummy description"))
+	cmd.AddOption(StringOption("seats", 's', "8", "dummy description").MarkDeprecated("details2"))
+
+	fileContents := `
+name="myproduct"
+category=misc
+price=100
+
+[beta]
+price=5
+`
+
+	cliPrice := "Option --price is deprecated. details1"
+	cliSeats := "Option --seats is deprecated. details2"
+	filePrice := "/tmp/fake.cnf: Option price is deprecated. details1"
+
+	// map of cli flags -> expected warnings
+	cases := map[string][]string{
+		"":                               {filePrice, filePrice},
+		"-p 100 -n foo":                  {cliPrice, filePrice, filePrice},
+		"--name=foo --seats=4":           {cliSeats, filePrice, filePrice},
+		"--seats 123 -c books":           {cliSeats, filePrice, filePrice},
+		"-s 111 -c 444 -p 222 -n myname": {cliSeats, cliPrice, filePrice, filePrice},
+	}
+
+	for cliFlags, expected := range cases {
+		cfg := ParseFakeCLI(t, cmd, "mycommand "+cliFlags)
+		f, err := getParsedFile(cfg, false, fileContents)
+		if err != nil {
+			t.Fatalf("Unexpected error getting fake parsed file: %v", err)
+		}
+		cfg.AddSource(f)
+		deprWarnings := cfg.DeprecatedOptionUsage()
+		if len(deprWarnings) != len(expected) {
+			t.Errorf("For command `mycommand %s`, expected %d warnings, instead found %d: %v", cliFlags, len(expected), len(deprWarnings), deprWarnings)
+			continue
+		}
+		slices.Sort(deprWarnings)
+		slices.Sort(expected)
+		for n := range deprWarnings {
+			if deprWarnings[n] != expected[n] {
+				t.Errorf("For command `mycommand %s`, expected warning[%d] to be %q, but instead found %q", cliFlags, n, expected[n], deprWarnings[n])
+			}
+		}
 	}
 }
 
