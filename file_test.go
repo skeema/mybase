@@ -160,6 +160,56 @@ func TestParse(t *testing.T) {
 	assertFileValue(f, "one", "mystring", "hello")
 }
 
+func TestParseLimitOptions(t *testing.T) {
+	cmd := NewCommand("test", "1.0", "this is for testing", nil)
+	cmd.AddOption(StringOption("mystring", 0, "", ""))
+	cmd.AddOption(StringOption("otherstring", 0, "", ""))
+	cmd.AddOption(BoolOption("mybool", 0, false, ""))
+	cli := &CommandLine{
+		Command: cmd,
+	}
+
+	getFileWithLimitedOptions := func(limitOptions ...string) *File {
+		t.Helper()
+		cfg := NewConfig(cli)
+		file := NewFile("/tmp/fake.cnf")
+		file.LimitOptions(limitOptions...)
+		file.contents = `
+mystring=one
+otherstring=two
+mybool=true
+doesntexist=whatever
+`
+		file.read = true
+		if err := file.Parse(cfg); err != nil {
+			t.Fatalf("Unexpected error from parse: %v", err)
+		}
+		return file
+	}
+	assertSet := func(f *File, optionName string) {
+		t.Helper()
+		if _, ok := f.OptionValue(optionName); !ok {
+			t.Errorf("Expected option %q to be set, but it was not", optionName)
+		}
+	}
+	assertNotSet := func(f *File, optionName string) {
+		t.Helper()
+		if _, ok := f.OptionValue(optionName); ok {
+			t.Errorf("Expected option %q to not be set, but it was", optionName)
+		}
+	}
+
+	f := getFileWithLimitedOptions("mystring")
+	assertSet(f, "mystring")
+	assertNotSet(f, "otherstring")
+	assertNotSet(f, "mybool")
+
+	f = getFileWithLimitedOptions("mystring", "mybool")
+	assertSet(f, "mystring")
+	assertNotSet(f, "otherstring")
+	assertSet(f, "mybool")
+}
+
 func TestFileSameContents(t *testing.T) {
 	cmd := NewCommand("test", "1.0", "this is for testing", nil)
 	cmd.AddOption(StringOption("mystring", 0, "", ""))
